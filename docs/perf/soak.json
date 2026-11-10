@@ -3,991 +3,1452 @@
     "clients": 200,
     "minutes": 60
   },
+  "clientLag": [
+    {
+      "minute": 1,
+      "p99Ms": 80,
+      "maxMs": 157
+    },
+    {
+      "minute": 2,
+      "p99Ms": 128,
+      "maxMs": 199
+    },
+    {
+      "minute": 3,
+      "p99Ms": 99,
+      "maxMs": 99
+    },
+    {
+      "minute": 4,
+      "p99Ms": 185,
+      "maxMs": 185
+    },
+    {
+      "minute": 5,
+      "p99Ms": 145,
+      "maxMs": 145
+    },
+    {
+      "minute": 6,
+      "p99Ms": 231,
+      "maxMs": 318
+    },
+    {
+      "minute": 7,
+      "p99Ms": 158,
+      "maxMs": 207
+    },
+    {
+      "minute": 8,
+      "p99Ms": 154,
+      "maxMs": 260
+    },
+    {
+      "minute": 9,
+      "p99Ms": 143,
+      "maxMs": 201
+    },
+    {
+      "minute": 10,
+      "p99Ms": 135,
+      "maxMs": 176
+    },
+    {
+      "minute": 11,
+      "p99Ms": 207,
+      "maxMs": 276
+    },
+    {
+      "minute": 12,
+      "p99Ms": 147,
+      "maxMs": 195
+    },
+    {
+      "minute": 13,
+      "p99Ms": 138,
+      "maxMs": 223
+    },
+    {
+      "minute": 14,
+      "p99Ms": 151,
+      "maxMs": 193
+    },
+    {
+      "minute": 15,
+      "p99Ms": 147,
+      "maxMs": 284
+    },
+    {
+      "minute": 16,
+      "p99Ms": 220,
+      "maxMs": 284
+    },
+    {
+      "minute": 17,
+      "p99Ms": 148,
+      "maxMs": 182
+    },
+    {
+      "minute": 18,
+      "p99Ms": 146,
+      "maxMs": 194
+    },
+    {
+      "minute": 19,
+      "p99Ms": 147,
+      "maxMs": 258
+    },
+    {
+      "minute": 20,
+      "p99Ms": 160,
+      "maxMs": 204
+    },
+    {
+      "minute": 21,
+      "p99Ms": 220,
+      "maxMs": 341
+    },
+    {
+      "minute": 22,
+      "p99Ms": 131,
+      "maxMs": 131
+    },
+    {
+      "minute": 23,
+      "p99Ms": 154,
+      "maxMs": 264
+    },
+    {
+      "minute": 24,
+      "p99Ms": 147,
+      "maxMs": 185
+    },
+    {
+      "minute": 25,
+      "p99Ms": 137,
+      "maxMs": 172
+    },
+    {
+      "minute": 26,
+      "p99Ms": 221,
+      "maxMs": 383
+    },
+    {
+      "minute": 27,
+      "p99Ms": 102,
+      "maxMs": 102
+    },
+    {
+      "minute": 28,
+      "p99Ms": 161,
+      "maxMs": 202
+    },
+    {
+      "minute": 29,
+      "p99Ms": 136,
+      "maxMs": 185
+    },
+    {
+      "minute": 30,
+      "p99Ms": 135,
+      "maxMs": 207
+    },
+    {
+      "minute": 31,
+      "p99Ms": 218,
+      "maxMs": 265
+    },
+    {
+      "minute": 32,
+      "p99Ms": 137,
+      "maxMs": 137
+    },
+    {
+      "minute": 33,
+      "p99Ms": 117,
+      "maxMs": 160
+    },
+    {
+      "minute": 34,
+      "p99Ms": 147,
+      "maxMs": 198
+    },
+    {
+      "minute": 35,
+      "p99Ms": 140,
+      "maxMs": 201
+    },
+    {
+      "minute": 36,
+      "p99Ms": 191,
+      "maxMs": 264
+    },
+    {
+      "minute": 37,
+      "p99Ms": 92,
+      "maxMs": 92
+    },
+    {
+      "minute": 38,
+      "p99Ms": 155,
+      "maxMs": 165
+    },
+    {
+      "minute": 39,
+      "p99Ms": 142,
+      "maxMs": 212
+    },
+    {
+      "minute": 40,
+      "p99Ms": 152,
+      "maxMs": 220
+    },
+    {
+      "minute": 41,
+      "p99Ms": 206,
+      "maxMs": 260
+    },
+    {
+      "minute": 42,
+      "p99Ms": 109,
+      "maxMs": 109
+    },
+    {
+      "minute": 43,
+      "p99Ms": 121,
+      "maxMs": 121
+    },
+    {
+      "minute": 44,
+      "p99Ms": 136,
+      "maxMs": 196
+    },
+    {
+      "minute": 45,
+      "p99Ms": 154,
+      "maxMs": 233
+    },
+    {
+      "minute": 46,
+      "p99Ms": 229,
+      "maxMs": 303
+    },
+    {
+      "minute": 47,
+      "p99Ms": 201,
+      "maxMs": 201
+    },
+    {
+      "minute": 48,
+      "p99Ms": 125,
+      "maxMs": 125
+    },
+    {
+      "minute": 49,
+      "p99Ms": 150,
+      "maxMs": 209
+    },
+    {
+      "minute": 50,
+      "p99Ms": 167,
+      "maxMs": 282
+    },
+    {
+      "minute": 51,
+      "p99Ms": 232,
+      "maxMs": 310
+    },
+    {
+      "minute": 52,
+      "p99Ms": 147,
+      "maxMs": 147
+    },
+    {
+      "minute": 53,
+      "p99Ms": 169,
+      "maxMs": 169
+    },
+    {
+      "minute": 54,
+      "p99Ms": 154,
+      "maxMs": 193
+    },
+    {
+      "minute": 55,
+      "p99Ms": 155,
+      "maxMs": 208
+    },
+    {
+      "minute": 56,
+      "p99Ms": 214,
+      "maxMs": 302
+    },
+    {
+      "minute": 57,
+      "p99Ms": 122,
+      "maxMs": 122
+    },
+    {
+      "minute": 58,
+      "p99Ms": 117,
+      "maxMs": 117
+    },
+    {
+      "minute": 59,
+      "p99Ms": 147,
+      "maxMs": 180
+    },
+    {
+      "minute": 60,
+      "p99Ms": 147,
+      "maxMs": 189
+    }
+  ],
   "entered": 200,
   "failures": [
-    "hub sample at minute 10: Error: /v1/e2e/consistency did not answer: TimeoutError: The operation was aborted due to timeout",
-    "hub sample at minute 15: Error: /v1/e2e/metrics did not answer: TimeoutError: The operation was aborted due to timeout",
-    "hub sample at minute 25: Error: /v1/e2e/metrics did not answer: TimeoutError: The operation was aborted due to timeout",
-    "hub sample at minute 26: Error: /v1/e2e/metrics did not answer: TimeoutError: The operation was aborted due to timeout",
-    "hub sample at minute 27: Error: /v1/e2e/metrics did not answer: TimeoutError: The operation was aborted due to timeout",
-    "hub sample at minute 28: Error: /v1/e2e/metrics did not answer: TimeoutError: The operation was aborted due to timeout",
-    "hub sample at minute 39: Error: /v1/e2e/metrics did not answer: TimeoutError: The operation was aborted due to timeout",
-    "hub sample at minute 40: Error: /v1/e2e/metrics did not answer: TimeoutError: The operation was aborted due to timeout",
-    "hub sample at minute 41: Error: /v1/e2e/metrics did not answer: TimeoutError: The operation was aborted due to timeout",
-    "hub sample at minute 42: Error: /v1/e2e/metrics did not answer: TimeoutError: The operation was aborted due to timeout",
-    "hub sample at minute 43: Error: /v1/e2e/metrics did not answer: TimeoutError: The operation was aborted due to timeout",
-    "hub sample at minute 44: Error: /v1/e2e/metrics did not answer: TimeoutError: The operation was aborted due to timeout",
-    "hub sample at minute 45: Error: /v1/e2e/metrics did not answer: TimeoutError: The operation was aborted due to timeout",
-    "hub sample at minute 46: Error: /v1/e2e/metrics did not answer: TimeoutError: The operation was aborted due to timeout",
-    "hub sample at minute 47: Error: /v1/e2e/metrics did not answer: TimeoutError: The operation was aborted due to timeout",
-    "hub sample at minute 48: Error: /v1/e2e/metrics did not answer: TimeoutError: The operation was aborted due to timeout",
-    "hub sample at minute 49: Error: /v1/e2e/metrics did not answer: TimeoutError: The operation was aborted due to timeout",
-    "client 0 was closed for its rate; it sent input 831, mate-check 184, ping 127, progress 113, where 108, engage 66",
-    "client 2 was closed for its rate; it sent engage 348, where 110, ping 101, progress 79, hello 14, spawn 10",
-    "client 4 was closed for its rate; it sent input 3366, engage 163, mate-check 159, ping 154, where 105, progress 80",
-    "client 5 was closed for its rate; it sent engage 275, where 120, ping 119, progress 85, mate-check 30, hello 13",
-    "client 8 was closed for its rate; it sent input 197, mate-check 166, progress 106, where 102, engage 100, ping 95",
-    "client 9 was closed for its rate; it sent mate-check 136, where 113, progress 95, ping 94, engage 72, court 21",
-    "client 11 was closed for its rate; it sent engage 127, mate-check 114, where 104, ping 101, progress 99, court 22",
-    "client 12 was closed for its rate; it sent input 505, mate-check 245, where 149, progress 141, ping 105, engage 68",
-    "client 13 was closed for its rate; it sent engage 322, where 147, progress 114, mate-check 113, ping 92, court 14",
-    "client 15 was closed for its rate; it sent engage 162, ping 98, where 94, progress 84, mate-check 76, hello 17",
-    "client 16 was closed for its rate; it sent restore 385, input 80, ping 75, mate-check 31, where 19, progress 16",
-    "client 20 was closed for its rate; it sent input 4449, mate-check 195, ping 149, where 113, progress 108, engage 43",
-    "client 21 was closed for its rate; it sent engage 329, where 104, progress 81, ping 79, mate-check 21, hello 12",
-    "client 23 was closed for its rate; it sent engage 202, mate-check 127, where 118, ping 105, progress 104, court 16",
-    "client 24 was closed for its rate; it sent input 359, mate-check 255, progress 138, ping 112, where 102, court 43",
-    "client 28 was closed for its rate; it sent input 557, mate-check 225, where 114, progress 114, ping 89, engage 76",
-    "client 29 was closed for its rate; it sent engage 330, where 114, ping 105, progress 88, mate-check 30, hello 10",
-    "client 30 was closed for its rate; it sent engage 200, where 137, progress 109, ping 99, mate-check 96, court 16",
-    "client 32 was closed for its rate; it sent input 2032, engage 234, ping 126, where 106, progress 85, mate-check 72",
-    "client 35 was closed for its rate; it sent engage 420, where 122, ping 100, progress 88, hello 10, mate-check 6",
-    "client 36 was closed for its rate; it sent input 2711, engage 273, ping 160, where 94, progress 62, hello 27",
-    "client 37 was closed for its rate; it sent engage 300, where 132, ping 115, progress 93, mate-check 34, hello 11",
-    "client 40 was closed for its rate; it sent input 849, mate-check 225, where 129, progress 122, ping 109, court 39",
-    "client 42 was closed for its rate; it sent engage 267, where 133, progress 119, mate-check 109, ping 103, court 23",
-    "client 43 was closed for its rate; it sent mate-check 120, ping 116, engage 116, where 102, progress 93, spawn 18",
-    "client 44 was closed for its rate; it sent input 878, engage 221, where 117, mate-check 116, ping 111, progress 101",
-    "client 48 was closed for its rate; it sent input 1533, mate-check 232, progress 117, where 116, ping 109, engage 82",
-    "client 49 was closed for its rate; it sent engage 139, ping 108, where 101, mate-check 100, restore 95, progress 78",
-    "client 50 was closed for its rate; it sent mate-check 180, where 102, progress 98, ping 94, engage 60, court 24",
-    "client 52 was closed for its rate; it sent input 4588, engage 126, ping 115, where 103, mate-check 88, progress 82",
-    "client 53 was closed for its rate; it sent mate-check 259, progress 149, where 145, ping 81, engage 80, decline 53",
-    "client 55 was closed for its rate; it sent engage 337, where 113, ping 92, progress 86, mate-check 24, hello 9",
-    "client 56 was closed for its rate; it sent input 638, engage 218, mate-check 142, where 122, ping 105, progress 98",
-    "client 57 was closed for its rate; it sent engage 339, where 127, progress 87, ping 74, mate-check 45, hello 9",
-    "client 60 was closed for its rate; it sent input 3543, engage 160, ping 142, where 119, mate-check 107, progress 100",
-    "client 62 was closed for its rate; it sent engage 166, ping 130, where 104, progress 92, mate-check 90, court 19",
-    "client 64 was closed for its rate; it sent input 1657, engage 174, where 127, mate-check 121, ping 117, progress 99",
-    "client 67 was closed for its rate; it sent mate-check 210, where 126, progress 116, engage 105, ping 91, court 26",
-    "client 68 was closed for its rate; it sent input 1229, mate-check 186, where 117, progress 116, ping 112, engage 65",
-    "client 69 was closed for its rate; it sent engage 212, ping 114, where 89, progress 63, mate-check 37, hello 19",
-    "client 70 was closed for its rate; it sent engage 194, where 135, mate-check 127, progress 111, ping 80, court 18",
-    "client 72 was closed for its rate; it sent input 463, engage 197, mate-check 135, where 113, progress 98, ping 87",
-    "client 73 was closed for its rate; it sent engage 249, where 127, progress 102, ping 92, mate-check 79, court 15",
-    "client 74 was closed for its rate; it sent mate-check 156, engage 151, where 119, progress 103, ping 84, court 19",
-    "client 76 was closed for its rate; it sent input 6622, ping 188, engage 187, where 105, progress 66, hello 28",
-    "client 79 was closed for its rate; it sent engage 306, where 126, progress 85, ping 79, mate-check 43, genesis-request 8",
-    "client 80 was closed for its rate; it sent input 10138, ping 213, mate-check 97, where 92, progress 61, hello 30",
-    "client 82 was closed for its rate; it sent engage 144, mate-check 131, where 116, progress 106, ping 83, court 29",
-    "client 84 was closed for its rate; it sent input 8985, ping 219, engage 131, where 95, progress 50, hello 32",
-    "client 86 was closed for its rate; it sent engage 135, mate-check 132, where 106, progress 87, ping 85, court 15",
-    "client 88 was closed for its rate; it sent input 469, restore 227, mate-check 173, progress 80, ping 72, where 70",
-    "client 92 was closed for its rate; it sent input 2295, engage 192, mate-check 188, where 137, ping 135, progress 117",
-    "client 93 was closed for its rate; it sent engage 198, where 112, ping 108, mate-check 102, progress 90, decline 15",
-    "client 94 was closed for its rate; it sent engage 289, where 103, progress 82, ping 77, mate-check 24, hello 14",
-    "client 96 was closed for its rate; it sent input 2263, engage 400, ping 117, where 112, progress 85, mate-check 42",
-    "client 100 was closed for its rate; it sent input 1255, engage 165, mate-check 129, ping 120, where 108, progress 97",
-    "client 103 was closed for its rate; it sent mate-check 149, where 104, progress 98, ping 95, engage 93, court 19",
-    "client 104 was closed for its rate; it sent input 1764, mate-check 211, progress 115, where 109, ping 90, engage 51",
-    "client 108 was closed for its rate; it sent input 2150, engage 179, mate-check 133, ping 120, where 118, progress 99",
-    "client 110 was closed for its rate; it sent engage 363, where 105, ping 97, progress 73, hello 13, spawn 7",
-    "client 112 was closed for its rate; it sent input 884, engage 256, ping 100, where 100, progress 86, mate-check 74",
-    "client 115 was closed for its rate; it sent engage 249, where 115, progress 94, ping 92, mate-check 81, decline 19",
-    "client 116 was closed for its rate; it sent input 1768, mate-check 214, ping 124, progress 122, where 114, engage 87",
-    "client 118 was closed for its rate; it sent engage 288, where 113, progress 90, ping 78, mate-check 56, hello 12",
-    "client 120 was closed for its rate; it sent input 5642, ping 191, mate-check 131, where 101, progress 92, engage 58",
-    "client 121 was closed for its rate; it sent mate-check 161, where 111, engage 104, progress 100, ping 87, court 23",
-    "client 122 was closed for its rate; it sent engage 326, where 117, ping 90, progress 85, mate-check 55, genesis-request 13",
-    "client 124 was closed for its rate; it sent input 3371, mate-check 151, ping 127, engage 115, where 108, progress 91",
-    "client 125 was closed for its rate; it sent mate-check 153, where 108, progress 105, ping 97, engage 97, court 32",
-    "client 126 was closed for its rate; it sent engage 395, where 119, ping 106, progress 86, mate-check 13, hello 11",
-    "client 127 was closed for its rate; it sent engage 226, where 111, progress 105, mate-check 101, ping 90, court 22",
-    "client 128 was closed for its rate; it sent input 825, mate-check 170, ping 104, progress 96, where 89, engage 55",
-    "client 131 was closed for its rate; it sent engage 198, where 94, progress 86, ping 83, mate-check 79, hello 14",
-    "client 132 was closed for its rate; it sent input 250, mate-check 219, progress 105, where 100, ping 91, engage 43",
-    "client 133 was closed for its rate; it sent engage 288, where 90, ping 88, progress 72, mate-check 16, hello 15",
-    "client 135 was closed for its rate; it sent engage 261, where 135, mate-check 112, progress 109, ping 102, court 14",
-    "client 136 was closed for its rate; it sent input 615, restore 124, engage 110, ping 108, mate-check 77, where 76",
-    "client 137 was closed for its rate; it sent mate-check 122, engage 102, where 90, ping 89, progress 86, spawn 16",
-    "client 138 was closed for its rate; it sent engage 191, mate-check 132, where 129, progress 107, ping 99, court 17",
-    "client 140 was closed for its rate; it sent input 356, mate-check 253, progress 110, ping 92, where 92, court 35",
-    "client 142 was closed for its rate; it sent engage 250, where 94, progress 80, ping 76, mate-check 74, hello 14",
-    "client 144 was closed for its rate; it sent input 2762, mate-check 203, ping 128, where 124, progress 123, engage 91",
-    "client 148 was closed for its rate; it sent input 1459, mate-check 145, engage 138, ping 126, where 98, progress 94",
-    "client 149 was closed for its rate; it sent mate-check 247, progress 114, where 92, ping 81, engage 48, court 30",
-    "client 152 was closed for its rate; it sent input 963, mate-check 146, ping 103, where 79, progress 77, engage 69",
-    "client 156 was closed for its rate; it sent mate-check 346, input 218, progress 156, where 134, ping 77, court 46",
-    "client 159 was closed for its rate; it sent mate-check 202, engage 176, progress 121, where 119, ping 84, court 30",
-    "client 160 was closed for its rate; it sent input 3185, ping 156, engage 108, where 80, progress 58, mate-check 34",
-    "client 162 was closed for its rate; it sent engage 179, mate-check 126, where 111, progress 101, ping 87, court 24",
-    "client 164 was closed for its rate; it sent input 1541, mate-check 154, where 100, ping 99, progress 96, engage 80",
-    "client 166 was closed for its rate; it sent engage 226, mate-check 152, where 119, progress 112, ping 100, court 20",
-    "client 167 was closed for its rate; it sent engage 252, where 108, mate-check 107, progress 105, ping 83, court 24",
-    "client 168 was closed for its rate; it sent input 6781, ping 203, mate-check 188, progress 101, where 94, engage 47",
-    "client 172 was closed for its rate; it sent mate-check 209, progress 111, ping 102, where 97, engage 52, court 31",
-    "client 174 was closed for its rate; it sent engage 163, where 100, ping 89, mate-check 89, progress 81, court 14",
-    "client 175 was closed for its rate; it sent ping 103, engage 102, mate-check 83, where 82, progress 73, hello 15",
-    "client 176 was closed for its rate; it sent input 445, mate-check 247, progress 119, where 109, ping 83, engage 50",
-    "client 177 was closed for its rate; it sent engage 144, ping 120, mate-check 120, where 106, progress 95, court 21",
-    "client 180 was closed for its rate; it sent input 1167, mate-check 204, progress 117, ping 96, where 92, engage 55",
-    "client 183 was closed for its rate; it sent mate-check 151, engage 149, progress 97, where 91, ping 79, court 20",
-    "client 184 was closed for its rate; it sent input 2432, engage 184, ping 127, where 81, progress 65, hello 18",
-    "client 188 was closed for its rate; it sent input 665, mate-check 248, progress 118, where 105, ping 82, engage 56",
-    "client 192 was closed for its rate; it sent input 1563, mate-check 179, where 107, progress 107, engage 85, ping 83",
-    "client 193 was closed for its rate; it sent mate-check 184, engage 116, where 113, progress 106, ping 85, court 22",
-    "client 195 was closed for its rate; it sent engage 243, where 105, progress 98, mate-check 96, ping 83, court 18",
-    "client 196 was closed for its rate; it sent input 1514, mate-check 124, ping 111, engage 96, progress 94, where 93",
-    "client 197 was closed for its rate; it sent mate-check 223, progress 128, engage 118, where 113, ping 66, court 31",
-    "client 198 was closed for its rate; it sent mate-check 201, progress 105, where 86, ping 85, engage 47, court 32"
+    "page 1: pageerror: food c489_485_s1_k0 is not alive",
+    "page 1: pageerror: food c489_485_s1_k0 is not alive",
+    "page 1: pageerror: food c489_485_s1_k0 is not alive",
+    "page 1: pageerror: food c489_485_s1_k0 is not alive",
+    "page 1: pageerror: food c489_485_s1_k0 is not alive",
+    "page 1: pageerror: food c489_485_s1_k0 is not alive",
+    "page 1: pageerror: food c489_485_s1_k0 is not alive",
+    "page 1: pageerror: food c489_485_s1_k0 is not alive",
+    "page 1: pageerror: food c489_485_s1_k0 is not alive",
+    "page 1: pageerror: food c489_485_s1_k0 is not alive",
+    "flagged report: {\"kind\":\"growth-too-fast\",\"now\":1794313390847,\"report\":{\"n\":4,\"ticks\":1950,\"biomass\":17208},\"before\":{\"t\":1794313390721,\"startT\":1794313323448,\"boundT\":1794313390823,\"boundMs\":63700,\"activeMs\":63700,\"ticks\":1911,\"boundBiomass\":14339,\"biomass\":14339,\"n\":3},\"creditedMs\":1300}",
+    "flagged report: {\"kind\":\"health-over\",\"now\":1794313390847,\"report\":{\"n\":4,\"ticks\":1950,\"biomass\":17208},\"before\":{\"t\":1794313390721,\"startT\":1794313323448,\"boundT\":1794313390823,\"boundMs\":63700,\"activeMs\":63700,\"ticks\":1911,\"boundBiomass\":14339,\"biomass\":14339,\"n\":3},\"creditedMs\":1300}",
+    "flagged report: {\"kind\":\"growth-too-fast\",\"now\":1794313420267,\"report\":{\"n\":6,\"ticks\":3750,\"biomass\":13273},\"before\":{\"t\":1794313420194,\"startT\":1794313294213,\"boundT\":1794313420254,\"boundMs\":106700,\"activeMs\":106700,\"ticks\":3716,\"boundBiomass\":11282,\"biomass\":11282,\"n\":5},\"creditedMs\":1133}",
+    "flagged report: closed in a message: locked false, ended never (hub 1794313987451), locks , signal@8269 signal@16667 signal@25233 signal@33275 signal@41782 signal@50023 ping@51081 signal@58395 signal@66958 signal@75530 signal@83951 leave@87451",
+    "flagged report: {\"kind\":\"growth-too-fast\",\"now\":1794314111106,\"report\":{\"n\":5,\"ticks\":2853,\"biomass\":30534},\"before\":{\"t\":1794314106437,\"startT\":1794314012758,\"boundT\":1794314109742,\"boundMs\":203639,\"activeMs\":203639,\"ticks\":2734,\"boundBiomass\":25953,\"biomass\":25953,\"n\":4},\"creditedMs\":3364}",
+    "flagged report: {\"kind\":\"energy-over\",\"now\":1794314111106,\"report\":{\"n\":5,\"ticks\":2853,\"biomass\":30534},\"before\":{\"t\":1794314106437,\"startT\":1794314012758,\"boundT\":1794314109742,\"boundMs\":203639,\"activeMs\":203639,\"ticks\":2734,\"boundBiomass\":25953,\"biomass\":25953,\"n\":4},\"creditedMs\":3364}",
+    "flagged report: {\"kind\":\"health-over\",\"now\":1794314111106,\"report\":{\"n\":5,\"ticks\":2853,\"biomass\":30534},\"before\":{\"t\":1794314106437,\"startT\":1794314012758,\"boundT\":1794314109742,\"boundMs\":203639,\"activeMs\":203639,\"ticks\":2734,\"boundBiomass\":25953,\"biomass\":25953,\"n\":4},\"creditedMs\":3364}",
+    "flagged report: {\"kind\":\"growth-too-fast\",\"now\":1794315056266,\"report\":{\"n\":18,\"ticks\":11862,\"biomass\":22272},\"before\":{\"t\":1794315043504,\"startT\":1794314652262,\"boundT\":1794315053333,\"boundMs\":381363,\"activeMs\":381363,\"ticks\":11488,\"boundBiomass\":18262,\"biomass\":18262,\"n\":17},\"creditedMs\":4933}",
+    "flagged report: {\"kind\":\"growth-too-fast\",\"now\":1794315306375,\"report\":{\"n\":6,\"ticks\":2770,\"biomass\":23815},\"before\":{\"t\":1794315305057,\"startT\":1794315211080,\"boundT\":1794315305117,\"boundMs\":85982,\"activeMs\":85982,\"ticks\":2664,\"boundBiomass\":19333,\"biomass\":19333,\"n\":5},\"creditedMs\":3258}",
+    "flagged report: {\"kind\":\"health-over\",\"now\":1794315306375,\"report\":{\"n\":6,\"ticks\":2770,\"biomass\":23815},\"before\":{\"t\":1794315305057,\"startT\":1794315211080,\"boundT\":1794315305117,\"boundMs\":85982,\"activeMs\":85982,\"ticks\":2664,\"boundBiomass\":19333,\"biomass\":19333,\"n\":5},\"creditedMs\":3258}",
+    "flagged report: {\"kind\":\"growth-too-fast\",\"now\":1794315366646,\"report\":{\"n\":4,\"ticks\":1950,\"biomass\":15988},\"before\":{\"t\":1794315359877,\"startT\":1794315294590,\"boundT\":1794315366632,\"boundMs\":55766,\"activeMs\":55766,\"ticks\":1673,\"boundBiomass\":12034,\"biomass\":12034,\"n\":3},\"creditedMs\":2014}",
+    "flagged report: {\"kind\":\"health-over\",\"now\":1794315366646,\"report\":{\"n\":4,\"ticks\":1950,\"biomass\":15988},\"before\":{\"t\":1794315359877,\"startT\":1794315294590,\"boundT\":1794315366632,\"boundMs\":55766,\"activeMs\":55766,\"ticks\":1673,\"boundBiomass\":12034,\"biomass\":12034,\"n\":3},\"creditedMs\":2014}",
+    "flagged report: {\"kind\":\"growth-too-fast\",\"now\":1794315630113,\"report\":{\"n\":8,\"ticks\":2833,\"biomass\":17302},\"before\":{\"t\":1794315630004,\"startT\":1794315532171,\"boundT\":1794315630107,\"boundMs\":91362,\"activeMs\":91362,\"ticks\":2787,\"boundBiomass\":14593,\"biomass\":14593,\"n\":7},\"creditedMs\":1533}",
+    "flagged report: {\"kind\":\"health-over\",\"now\":1794315630113,\"report\":{\"n\":8,\"ticks\":2833,\"biomass\":17302},\"before\":{\"t\":1794315630004,\"startT\":1794315532171,\"boundT\":1794315630107,\"boundMs\":91362,\"activeMs\":91362,\"ticks\":2787,\"boundBiomass\":14593,\"biomass\":14593,\"n\":7},\"creditedMs\":1533}",
+    "flagged report: {\"kind\":\"growth-too-fast\",\"now\":1794315745862,\"report\":{\"n\":7,\"ticks\":3750,\"biomass\":15940},\"before\":{\"t\":1794315745759,\"startT\":1794315615064,\"boundT\":1794315745804,\"boundMs\":123556,\"activeMs\":123556,\"ticks\":3747,\"boundBiomass\":13549,\"biomass\":13549,\"n\":6},\"creditedMs\":100}",
+    "flagged report: closed in a message: locked false, ended never (hub 1794315820977), locks , where@57374 signal@59471 signal@59472 signal@61408 signal@61413 signal@61414 signal@61415 ping@84572 where@91172 signal@94840 progress@46 where@20977",
+    "flagged report: {\"kind\":\"growth-too-fast\",\"now\":1794315908319,\"report\":{\"n\":10,\"ticks\":5550,\"biomass\":18197},\"before\":{\"t\":1794315908252,\"startT\":1794315721147,\"boundT\":1794315908302,\"boundMs\":182520,\"activeMs\":182520,\"ticks\":5527,\"boundBiomass\":15467,\"biomass\":15467,\"n\":9},\"creditedMs\":766}",
+    "flagged report: {\"kind\":\"growth-too-fast\",\"now\":1794315986914,\"report\":{\"n\":5,\"ticks\":1950,\"biomass\":12614},\"before\":{\"t\":1794315986716,\"startT\":1794315914363,\"boundT\":1794315986884,\"boundMs\":63233,\"activeMs\":63233,\"ticks\":1897,\"boundBiomass\":10353,\"biomass\":10353,\"n\":4},\"creditedMs\":1766}"
   ],
   "totals": {
-    "hatches": 461,
-    "resumes": 1316,
-    "matings": 759,
-    "births": 744,
-    "promotes": 450,
-    "restores": 140,
-    "fights": 1312,
-    "kills": 91,
-    "drops": 1039,
-    "limited": 5,
-    "courts": 30795,
-    "engages": 31273
+    "hatches": 253,
+    "resumes": 394,
+    "matings": 948,
+    "births": 943,
+    "promotes": 733,
+    "restores": 74,
+    "fights": 698,
+    "kills": 42,
+    "drops": 374,
+    "limited": 0,
+    "courts": 6768,
+    "engages": 2235
   },
   "closes": {
-    "1000": 97,
-    "1006": 15,
-    "4002": 752,
-    "4003": 436
+    "1006": 1
   },
   "refused": {
-    "active": 351,
-    "engage:instance": 1002,
-    "engage:range": 430,
-    "engage:stale": 25140,
-    "has-lineage": 553,
-    "not-here": 60,
-    "expired": 295,
-    "engage:locked": 441,
-    "engage:target": 739,
-    "locked": 39,
-    "partner-in-flight": 55,
-    "bad-signature": 180,
-    "engage:protected": 29,
-    "no-court": 30,
-    "not-nearest": 3095,
-    "low-energy": 28,
-    "not-near": 6,
-    "partner-low-energy": 16,
-    "in-flight": 14,
-    "bad-parent": 180,
-    "partner-pending": 1,
-    "no-creature": 12,
-    "partner-locked": 5,
-    "limit": 5,
-    "engage:full": 2,
-    "dead": 2
+    "engage:range": 755,
+    "engage:protected": 2,
+    "engage:stale": 890,
+    "low-energy": 26,
+    "partner-in-flight": 18,
+    "engage:locked": 226,
+    "has-lineage": 72,
+    "locked": 4,
+    "engage:instance": 10,
+    "partner-low-energy": 4,
+    "active": 23,
+    "not-here": 1
   },
   "deaths": {
-    "starved": 489,
-    "pressure": 42,
-    "killed": 91,
-    "uv": 26,
-    "toxin": 1
+    "killed": 42,
+    "starved": 300,
+    "toxin": 4,
+    "uv": 35,
+    "pressure": 15
   },
   "notReady": {
-    "not-mature": 4406,
-    "low-energy": 7825,
-    "cooldown": 1005,
-    "pending": 35340
+    "not-mature": 4579,
+    "pending": 119538,
+    "low-energy": 4781,
+    "cooldown": 315
   },
   "dropped": {},
+  "playerHours": 200.30696166666667,
+  "rows": {
+    "ponds": 2,
+    "keys": 1,
+    "commitments": 2192,
+    "players": 1097,
+    "flags": 1094,
+    "beacons": 423,
+    "records": 5568,
+    "creatures": 9226,
+    "genesis_log": 256,
+    "matings": 1424,
+    "encounters": 2952
+  },
   "flags": {
-    "biomass-over-max": 5,
-    "growth-too-fast": 157,
-    "energy-over": 39,
-    "health-over": 130,
-    "clock-too-fast": 293,
-    "claim-over": 2,
-    "authority-only": 1152
+    "growth-too-fast": 10,
+    "energy-over": 1,
+    "health-over": 5,
+    "claim-over": 1,
+    "authority-only": 1077
   },
   "inconsistencies": [],
   "verified": {
-    "checked": 237,
+    "checked": 240,
     "problems": []
   },
   "full": {
     "hub": [
       {
         "minute": 1,
-        "cpuMs": 74190,
-        "rssBytes": 691142656,
-        "messages": 16160,
-        "seated": 189,
+        "cpuMs": 14880,
+        "rssBytes": 476405760,
+        "heapBytes": 10517916,
+        "messages": 9858,
+        "seated": 194,
         "queued": 0,
-        "consistent": {
-          "kinds": {
-            "unrecorded": 1
-          },
-          "first": []
-        },
+        "consistent": null,
         "flags": {
-          "clock-too-fast": 1,
-          "authority-only": 458
-        }
+          "authority-only": 343
+        },
+        "read": null
       },
       {
         "minute": 2,
-        "cpuMs": 98260,
-        "rssBytes": 740843520,
-        "messages": 17432,
-        "seated": 184,
+        "cpuMs": 16460,
+        "rssBytes": 388964352,
+        "heapBytes": 10440636,
+        "messages": 9921,
+        "seated": 194,
+        "queued": 0,
+        "consistent": null,
+        "flags": {
+          "authority-only": 343
+        },
+        "read": null
+      },
+      {
+        "minute": 3,
+        "cpuMs": 16600,
+        "rssBytes": 388534272,
+        "heapBytes": 10579032,
+        "messages": 9961,
+        "seated": 194,
+        "queued": 0,
+        "consistent": null,
+        "flags": {
+          "authority-only": 345
+        },
+        "read": null
+      },
+      {
+        "minute": 4,
+        "cpuMs": 16770,
+        "rssBytes": 386740224,
+        "heapBytes": 10583824,
+        "messages": 10010,
+        "seated": 194,
+        "queued": 0,
+        "consistent": null,
+        "flags": {
+          "authority-only": 346
+        },
+        "read": null
+      },
+      {
+        "minute": 5,
+        "cpuMs": 16940,
+        "rssBytes": 389709824,
+        "heapBytes": 10448092,
+        "messages": 10055,
+        "seated": 195,
         "queued": 0,
         "consistent": {
           "kinds": {},
           "first": []
         },
         "flags": {
-          "growth-too-fast": 3,
-          "health-over": 2,
-          "clock-too-fast": 8,
-          "authority-only": 469
-        }
-      },
-      {
-        "minute": 3,
-        "cpuMs": 122220,
-        "rssBytes": 780046336,
-        "messages": 18902,
-        "seated": 185,
-        "queued": 0,
-        "consistent": {
-          "kinds": {
-            "unrecorded": 1
-          },
-          "first": []
+          "authority-only": 349
         },
-        "flags": {
-          "growth-too-fast": 3,
-          "health-over": 2,
-          "clock-too-fast": 13,
-          "authority-only": 485
-        }
-      },
-      {
-        "minute": 4,
-        "cpuMs": 146870,
-        "rssBytes": 813457408,
-        "messages": 20307,
-        "seated": 186,
-        "queued": 0,
-        "consistent": {
-          "kinds": {
-            "unrecorded": 3
-          },
-          "first": []
-        },
-        "flags": {
-          "growth-too-fast": 3,
-          "health-over": 2,
-          "clock-too-fast": 18,
-          "authority-only": 490
-        }
-      },
-      {
-        "minute": 5,
-        "cpuMs": 169980,
-        "rssBytes": 830439424,
-        "messages": 21508,
-        "seated": 175,
-        "queued": 0,
-        "consistent": {
-          "kinds": {
-            "unrecorded": 2
-          },
-          "first": []
-        },
-        "flags": {
-          "growth-too-fast": 5,
-          "health-over": 4,
-          "clock-too-fast": 25,
-          "authority-only": 497
+        "read": {
+          "cpuMs": 26700,
+          "messages": 1101
         }
       },
       {
         "minute": 6,
-        "cpuMs": 192420,
-        "rssBytes": 833175552,
-        "messages": 22641,
-        "seated": 175,
+        "cpuMs": 43810,
+        "rssBytes": 498425856,
+        "heapBytes": 11868680,
+        "messages": 11219,
+        "seated": 200,
         "queued": 0,
-        "consistent": {
-          "kinds": {
-            "unrecorded": 2
-          },
-          "first": []
-        },
+        "consistent": null,
         "flags": {
-          "growth-too-fast": 7,
-          "health-over": 5,
-          "clock-too-fast": 29,
-          "authority-only": 509
-        }
+          "authority-only": 367
+        },
+        "read": null
       },
       {
         "minute": 7,
-        "cpuMs": 216550,
-        "rssBytes": 836521984,
-        "messages": 23719,
-        "seated": 180,
+        "cpuMs": 46170,
+        "rssBytes": 419057664,
+        "heapBytes": 12003076,
+        "messages": 12513,
+        "seated": 200,
         "queued": 0,
-        "consistent": {
-          "kinds": {
-            "unrecorded": 2
-          },
-          "first": []
-        },
+        "consistent": null,
         "flags": {
-          "growth-too-fast": 10,
-          "health-over": 7,
-          "clock-too-fast": 31,
-          "authority-only": 516
-        }
+          "authority-only": 388
+        },
+        "read": null
       },
       {
         "minute": 8,
-        "cpuMs": 241350,
-        "rssBytes": 838311936,
-        "messages": 25124,
-        "seated": 186,
+        "cpuMs": 49590,
+        "rssBytes": 422338560,
+        "heapBytes": 12360260,
+        "messages": 14278,
+        "seated": 198,
         "queued": 0,
-        "consistent": {
-          "kinds": {
-            "unrecorded": 3
-          },
-          "first": []
-        },
+        "consistent": null,
         "flags": {
-          "growth-too-fast": 13,
-          "health-over": 9,
-          "clock-too-fast": 33,
-          "authority-only": 528
-        }
+          "authority-only": 410
+        },
+        "read": null
       },
       {
         "minute": 9,
-        "cpuMs": 266180,
-        "rssBytes": 837296128,
-        "messages": 27392,
-        "seated": 170,
+        "cpuMs": 52700,
+        "rssBytes": 422838272,
+        "heapBytes": 12288268,
+        "messages": 16164,
+        "seated": 197,
+        "queued": 0,
+        "consistent": null,
+        "flags": {
+          "authority-only": 432
+        },
+        "read": null
+      },
+      {
+        "minute": 10,
+        "cpuMs": 55480,
+        "rssBytes": 422801408,
+        "heapBytes": 12555196,
+        "messages": 18024,
+        "seated": 199,
         "queued": 0,
         "consistent": {
-          "kinds": {
-            "unrecorded": 3
-          },
+          "kinds": {},
           "first": []
         },
         "flags": {
-          "growth-too-fast": 16,
-          "energy-over": 1,
-          "health-over": 12,
-          "clock-too-fast": 34,
-          "authority-only": 537
+          "authority-only": 451
+        },
+        "read": {
+          "cpuMs": 55010,
+          "messages": 2305
         }
       },
       {
         "minute": 11,
-        "cpuMs": 395680,
-        "rssBytes": 821886976,
-        "messages": 34804,
-        "seated": 185,
+        "cpuMs": 110640,
+        "rssBytes": 509829120,
+        "heapBytes": 12731480,
+        "messages": 20388,
+        "seated": 200,
         "queued": 0,
-        "consistent": {
-          "kinds": {
-            "unrecorded": 1
-          },
-          "first": []
-        },
+        "consistent": null,
         "flags": {
-          "biomass-over-max": 1,
-          "growth-too-fast": 18,
-          "energy-over": 2,
-          "health-over": 14,
-          "clock-too-fast": 67,
-          "claim-over": 1,
-          "authority-only": 597
-        }
+          "authority-only": 473
+        },
+        "read": null
       },
       {
         "minute": 12,
-        "cpuMs": 454170,
-        "rssBytes": 808419328,
-        "messages": 38080,
-        "seated": 179,
+        "cpuMs": 112460,
+        "rssBytes": 415760384,
+        "heapBytes": 12473628,
+        "messages": 21620,
+        "seated": 198,
         "queued": 0,
-        "consistent": {
-          "kinds": {
-            "unrecorded": 1
-          },
-          "first": []
-        },
+        "consistent": null,
         "flags": {
-          "biomass-over-max": 2,
-          "growth-too-fast": 21,
-          "energy-over": 2,
-          "health-over": 18,
-          "clock-too-fast": 71,
-          "claim-over": 1,
-          "authority-only": 605
-        }
+          "authority-only": 482
+        },
+        "read": null
       },
       {
         "minute": 13,
-        "cpuMs": 482370,
-        "rssBytes": 821121024,
-        "messages": 39735,
-        "seated": 180,
+        "cpuMs": 114870,
+        "rssBytes": 430325760,
+        "heapBytes": 12764884,
+        "messages": 23305,
+        "seated": 198,
         "queued": 0,
-        "consistent": {
-          "kinds": {
-            "unrecorded": 1
-          },
-          "first": []
-        },
+        "consistent": null,
         "flags": {
-          "biomass-over-max": 3,
-          "growth-too-fast": 22,
-          "energy-over": 2,
-          "health-over": 19,
-          "clock-too-fast": 74,
-          "claim-over": 1,
-          "authority-only": 610
-        }
+          "authority-only": 492
+        },
+        "read": null
       },
       {
         "minute": 14,
-        "cpuMs": 511630,
-        "rssBytes": 829747200,
-        "messages": 41704,
-        "seated": 173,
+        "cpuMs": 117340,
+        "rssBytes": 430657536,
+        "heapBytes": 12503516,
+        "messages": 24901,
+        "seated": 199,
+        "queued": 0,
+        "consistent": null,
+        "flags": {
+          "authority-only": 505
+        },
+        "read": null
+      },
+      {
+        "minute": 15,
+        "cpuMs": 119850,
+        "rssBytes": 431509504,
+        "heapBytes": 12595884,
+        "messages": 26586,
+        "seated": 194,
         "queued": 0,
         "consistent": {
-          "kinds": {
-            "unrecorded": 1
-          },
+          "kinds": {},
           "first": []
         },
         "flags": {
-          "biomass-over-max": 3,
-          "growth-too-fast": 23,
-          "energy-over": 5,
-          "health-over": 20,
-          "clock-too-fast": 86,
-          "claim-over": 1,
-          "authority-only": 630
+          "authority-only": 514
+        },
+        "read": {
+          "cpuMs": 76250,
+          "messages": 2572
         }
       },
       {
         "minute": 16,
-        "cpuMs": 679810,
-        "rssBytes": 829247488,
-        "messages": 51838,
-        "seated": 171,
+        "cpuMs": 196240,
+        "rssBytes": 516145152,
+        "heapBytes": 12927976,
+        "messages": 29240,
+        "seated": 196,
         "queued": 0,
-        "consistent": {
-          "kinds": {
-            "unrecorded": 2
-          },
-          "first": []
-        },
+        "consistent": null,
         "flags": {
-          "biomass-over-max": 4,
-          "growth-too-fast": 33,
-          "energy-over": 7,
-          "health-over": 28,
-          "clock-too-fast": 104,
-          "claim-over": 1,
-          "authority-only": 701
-        }
+          "authority-only": 530
+        },
+        "read": null
       },
       {
         "minute": 17,
-        "cpuMs": 772170,
-        "rssBytes": 844435456,
-        "messages": 55056,
-        "seated": 182,
+        "cpuMs": 197250,
+        "rssBytes": 422400000,
+        "heapBytes": 12698512,
+        "messages": 30023,
+        "seated": 197,
         "queued": 0,
-        "consistent": {
-          "kinds": {
-            "unrecorded": 2
-          },
-          "first": []
-        },
+        "consistent": null,
         "flags": {
-          "biomass-over-max": 4,
-          "growth-too-fast": 39,
-          "energy-over": 8,
-          "health-over": 34,
-          "clock-too-fast": 111,
-          "claim-over": 1,
-          "authority-only": 715
-        }
+          "authority-only": 532
+        },
+        "read": null
       },
       {
         "minute": 18,
-        "cpuMs": 831340,
-        "rssBytes": 881831936,
-        "messages": 58134,
-        "seated": 188,
+        "cpuMs": 199820,
+        "rssBytes": 436498432,
+        "heapBytes": 12648932,
+        "messages": 31682,
+        "seated": 196,
         "queued": 0,
-        "consistent": {
-          "kinds": {},
-          "first": []
-        },
+        "consistent": null,
         "flags": {
-          "biomass-over-max": 4,
-          "growth-too-fast": 41,
-          "energy-over": 8,
-          "health-over": 36,
-          "clock-too-fast": 126,
-          "claim-over": 1,
-          "authority-only": 731
-        }
+          "authority-only": 544
+        },
+        "read": null
       },
       {
         "minute": 19,
-        "cpuMs": 860400,
-        "rssBytes": 899842048,
-        "messages": 61176,
-        "seated": 181,
+        "cpuMs": 202450,
+        "rssBytes": 437784576,
+        "heapBytes": 12699900,
+        "messages": 33463,
+        "seated": 198,
         "queued": 0,
-        "consistent": {
-          "kinds": {
-            "unrecorded": 1
-          },
-          "first": []
-        },
+        "consistent": null,
         "flags": {
-          "biomass-over-max": 4,
-          "growth-too-fast": 41,
-          "energy-over": 8,
-          "health-over": 36,
-          "clock-too-fast": 134,
-          "claim-over": 1,
-          "authority-only": 735
-        }
+          "authority-only": 558
+        },
+        "read": null
       },
       {
         "minute": 20,
-        "cpuMs": 889150,
-        "rssBytes": 919109632,
-        "messages": 62940,
-        "seated": 174,
+        "cpuMs": 205240,
+        "rssBytes": 440209408,
+        "heapBytes": 13029080,
+        "messages": 35267,
+        "seated": 197,
         "queued": 0,
         "consistent": {
           "kinds": {},
           "first": []
         },
         "flags": {
-          "biomass-over-max": 4,
-          "growth-too-fast": 43,
-          "energy-over": 8,
-          "health-over": 38,
-          "clock-too-fast": 135,
-          "claim-over": 1,
-          "authority-only": 746
+          "authority-only": 568
+        },
+        "read": {
+          "cpuMs": 93590,
+          "messages": 3072
         }
       },
       {
         "minute": 21,
-        "cpuMs": 949400,
-        "rssBytes": 920788992,
-        "messages": 66151,
-        "seated": 180,
+        "cpuMs": 298980,
+        "rssBytes": 527949824,
+        "heapBytes": 12901732,
+        "messages": 38390,
+        "seated": 193,
         "queued": 0,
-        "consistent": {
-          "kinds": {},
-          "first": []
-        },
+        "consistent": null,
         "flags": {
-          "biomass-over-max": 4,
-          "growth-too-fast": 46,
-          "energy-over": 9,
-          "health-over": 40,
-          "clock-too-fast": 142,
-          "claim-over": 1,
-          "authority-only": 759
-        }
+          "growth-too-fast": 2,
+          "health-over": 1,
+          "authority-only": 586
+        },
+        "read": null
       },
       {
         "minute": 22,
-        "cpuMs": 1009830,
-        "rssBytes": 922509312,
-        "messages": 69149,
-        "seated": 180,
+        "cpuMs": 299150,
+        "rssBytes": 423936000,
+        "heapBytes": 12760436,
+        "messages": 38440,
+        "seated": 194,
         "queued": 0,
-        "consistent": {
-          "kinds": {},
-          "first": []
-        },
+        "consistent": null,
         "flags": {
-          "biomass-over-max": 4,
-          "growth-too-fast": 49,
-          "energy-over": 10,
-          "health-over": 42,
-          "clock-too-fast": 146,
-          "claim-over": 1,
-          "authority-only": 772
-        }
+          "growth-too-fast": 2,
+          "health-over": 1,
+          "authority-only": 586
+        },
+        "read": null
       },
       {
         "minute": 23,
-        "cpuMs": 1039180,
-        "rssBytes": 918503424,
-        "messages": 70743,
-        "seated": 187,
+        "cpuMs": 301850,
+        "rssBytes": 445480960,
+        "heapBytes": 12877224,
+        "messages": 40187,
+        "seated": 197,
         "queued": 0,
-        "consistent": {
-          "kinds": {},
-          "first": []
-        },
+        "consistent": null,
         "flags": {
-          "biomass-over-max": 4,
-          "growth-too-fast": 49,
-          "energy-over": 10,
-          "health-over": 42,
-          "clock-too-fast": 148,
-          "claim-over": 1,
-          "authority-only": 774
-        }
+          "growth-too-fast": 2,
+          "health-over": 1,
+          "authority-only": 598
+        },
+        "read": null
       },
       {
         "minute": 24,
-        "cpuMs": 1068810,
-        "rssBytes": 871432192,
-        "messages": 72472,
-        "seated": 185,
+        "cpuMs": 304930,
+        "rssBytes": 446115840,
+        "heapBytes": 12799224,
+        "messages": 42170,
+        "seated": 193,
+        "queued": 0,
+        "consistent": null,
+        "flags": {
+          "growth-too-fast": 2,
+          "health-over": 1,
+          "authority-only": 615
+        },
+        "read": null
+      },
+      {
+        "minute": 25,
+        "cpuMs": 307950,
+        "rssBytes": 448073728,
+        "heapBytes": 14430348,
+        "messages": 44090,
+        "seated": 197,
         "queued": 0,
         "consistent": {
           "kinds": {},
           "first": []
         },
         "flags": {
-          "biomass-over-max": 4,
-          "growth-too-fast": 53,
-          "energy-over": 10,
-          "health-over": 46,
-          "clock-too-fast": 152,
-          "claim-over": 1,
-          "authority-only": 782
+          "growth-too-fast": 2,
+          "health-over": 1,
+          "authority-only": 636
+        },
+        "read": {
+          "cpuMs": 110670,
+          "messages": 4044
         }
+      },
+      {
+        "minute": 26,
+        "cpuMs": 418740,
+        "rssBytes": 531136512,
+        "heapBytes": 13525684,
+        "messages": 48174,
+        "seated": 198,
+        "queued": 0,
+        "consistent": null,
+        "flags": {
+          "growth-too-fast": 2,
+          "health-over": 1,
+          "authority-only": 669
+        },
+        "read": null
+      },
+      {
+        "minute": 27,
+        "cpuMs": 418940,
+        "rssBytes": 425988096,
+        "heapBytes": 12993456,
+        "messages": 48206,
+        "seated": 198,
+        "queued": 0,
+        "consistent": null,
+        "flags": {
+          "growth-too-fast": 2,
+          "health-over": 1,
+          "authority-only": 670
+        },
+        "read": null
+      },
+      {
+        "minute": 28,
+        "cpuMs": 420890,
+        "rssBytes": 447225856,
+        "heapBytes": 13100508,
+        "messages": 49224,
+        "seated": 194,
+        "queued": 0,
+        "consistent": null,
+        "flags": {
+          "growth-too-fast": 2,
+          "health-over": 1,
+          "authority-only": 687
+        },
+        "read": null
       },
       {
         "minute": 29,
-        "cpuMs": 1538250,
-        "rssBytes": 970182656,
-        "messages": 91786,
-        "seated": 174,
+        "cpuMs": 423240,
+        "rssBytes": 446353408,
+        "heapBytes": 12981880,
+        "messages": 50806,
+        "seated": 192,
         "queued": 0,
-        "consistent": {
-          "kinds": {},
-          "first": []
-        },
+        "consistent": null,
         "flags": {
-          "biomass-over-max": 4,
-          "growth-too-fast": 70,
-          "energy-over": 16,
-          "health-over": 58,
-          "clock-too-fast": 193,
-          "claim-over": 1,
-          "authority-only": 879
-        }
+          "growth-too-fast": 2,
+          "health-over": 1,
+          "authority-only": 693
+        },
+        "read": null
       },
       {
         "minute": 30,
-        "cpuMs": 1565970,
-        "rssBytes": 965730304,
-        "messages": 94829,
-        "seated": 186,
+        "cpuMs": 425850,
+        "rssBytes": 448327680,
+        "heapBytes": 13155856,
+        "messages": 52414,
+        "seated": 193,
         "queued": 0,
         "consistent": {
           "kinds": {},
           "first": []
         },
         "flags": {
-          "biomass-over-max": 4,
-          "growth-too-fast": 76,
-          "energy-over": 17,
-          "health-over": 64,
-          "clock-too-fast": 197,
-          "claim-over": 1,
-          "authority-only": 885
+          "growth-too-fast": 2,
+          "health-over": 1,
+          "authority-only": 705
+        },
+        "read": {
+          "cpuMs": 127560,
+          "messages": 4010
         }
       },
       {
         "minute": 31,
-        "cpuMs": 1594570,
-        "rssBytes": 973783040,
-        "messages": 97422,
-        "seated": 180,
+        "cpuMs": 553590,
+        "rssBytes": 541536256,
+        "heapBytes": 13241876,
+        "messages": 56473,
+        "seated": 194,
         "queued": 0,
-        "consistent": {
-          "kinds": {},
-          "first": []
-        },
+        "consistent": null,
         "flags": {
-          "biomass-over-max": 4,
-          "growth-too-fast": 80,
-          "energy-over": 17,
-          "health-over": 67,
-          "clock-too-fast": 197,
-          "claim-over": 1,
-          "authority-only": 892
-        }
+          "growth-too-fast": 3,
+          "energy-over": 1,
+          "health-over": 2,
+          "authority-only": 735
+        },
+        "read": null
       },
       {
         "minute": 32,
-        "cpuMs": 1655820,
-        "rssBytes": 974368768,
-        "messages": 99439,
-        "seated": 185,
+        "cpuMs": 553780,
+        "rssBytes": 432103424,
+        "heapBytes": 13073032,
+        "messages": 56525,
+        "seated": 194,
         "queued": 0,
-        "consistent": {
-          "kinds": {},
-          "first": []
-        },
+        "consistent": null,
         "flags": {
-          "biomass-over-max": 4,
-          "growth-too-fast": 81,
-          "energy-over": 18,
-          "health-over": 68,
-          "clock-too-fast": 199,
-          "claim-over": 1,
-          "authority-only": 902
-        }
+          "growth-too-fast": 3,
+          "energy-over": 1,
+          "health-over": 2,
+          "authority-only": 736
+        },
+        "read": null
       },
       {
         "minute": 33,
-        "cpuMs": 1685980,
-        "rssBytes": 916627456,
-        "messages": 101166,
-        "seated": 183,
+        "cpuMs": 554400,
+        "rssBytes": 434937856,
+        "heapBytes": 13067424,
+        "messages": 56984,
+        "seated": 197,
         "queued": 0,
-        "consistent": {
-          "kinds": {},
-          "first": []
-        },
+        "consistent": null,
         "flags": {
-          "biomass-over-max": 4,
-          "growth-too-fast": 83,
-          "energy-over": 18,
-          "health-over": 70,
-          "clock-too-fast": 218,
-          "claim-over": 1,
-          "authority-only": 910
-        }
+          "growth-too-fast": 3,
+          "energy-over": 1,
+          "health-over": 2,
+          "authority-only": 737
+        },
+        "read": null
       },
       {
         "minute": 34,
-        "cpuMs": 1714690,
-        "rssBytes": 934342656,
-        "messages": 102807,
-        "seated": 188,
+        "cpuMs": 557480,
+        "rssBytes": 454983680,
+        "heapBytes": 13367164,
+        "messages": 58572,
+        "seated": 195,
         "queued": 0,
-        "consistent": {
-          "kinds": {
-            "unrecorded": 1
-          },
-          "first": []
-        },
+        "consistent": null,
         "flags": {
-          "biomass-over-max": 4,
-          "growth-too-fast": 83,
-          "energy-over": 18,
-          "health-over": 70,
-          "clock-too-fast": 222,
-          "claim-over": 1,
-          "authority-only": 913
-        }
+          "growth-too-fast": 3,
+          "energy-over": 1,
+          "health-over": 2,
+          "authority-only": 755
+        },
+        "read": null
       },
       {
         "minute": 35,
-        "cpuMs": 1744330,
-        "rssBytes": 945000448,
-        "messages": 104382,
-        "seated": 187,
+        "cpuMs": 559990,
+        "rssBytes": 455471104,
+        "heapBytes": 13169676,
+        "messages": 60158,
+        "seated": 200,
         "queued": 0,
         "consistent": {
           "kinds": {},
           "first": []
         },
         "flags": {
-          "biomass-over-max": 4,
-          "growth-too-fast": 83,
-          "energy-over": 18,
-          "health-over": 70,
-          "clock-too-fast": 226,
-          "claim-over": 1,
-          "authority-only": 923
+          "growth-too-fast": 3,
+          "energy-over": 1,
+          "health-over": 2,
+          "authority-only": 769
+        },
+        "read": {
+          "cpuMs": 136860,
+          "messages": 4637
         }
       },
       {
         "minute": 36,
-        "cpuMs": 1774070,
-        "rssBytes": 948936704,
-        "messages": 106053,
-        "seated": 183,
+        "cpuMs": 697040,
+        "rssBytes": 544108544,
+        "heapBytes": 13141884,
+        "messages": 64849,
+        "seated": 197,
         "queued": 0,
-        "consistent": {
-          "kinds": {},
-          "first": []
-        },
+        "consistent": null,
         "flags": {
-          "biomass-over-max": 4,
-          "growth-too-fast": 85,
-          "energy-over": 18,
-          "health-over": 72,
-          "clock-too-fast": 229,
-          "claim-over": 1,
-          "authority-only": 933
-        }
+          "growth-too-fast": 3,
+          "energy-over": 1,
+          "health-over": 2,
+          "authority-only": 802
+        },
+        "read": null
       },
       {
         "minute": 37,
-        "cpuMs": 1803180,
-        "rssBytes": 967147520,
-        "messages": 108664,
-        "seated": 168,
+        "cpuMs": 697190,
+        "rssBytes": 436600832,
+        "heapBytes": 13236744,
+        "messages": 64883,
+        "seated": 196,
         "queued": 0,
-        "consistent": {
-          "kinds": {},
-          "first": []
-        },
+        "consistent": null,
         "flags": {
-          "biomass-over-max": 4,
-          "growth-too-fast": 87,
-          "energy-over": 18,
-          "health-over": 73,
-          "clock-too-fast": 231,
-          "claim-over": 1,
-          "authority-only": 939
-        }
+          "growth-too-fast": 3,
+          "energy-over": 1,
+          "health-over": 2,
+          "authority-only": 803
+        },
+        "read": null
       },
       {
         "minute": 38,
-        "cpuMs": 1831260,
-        "rssBytes": 963518464,
-        "messages": 109156,
-        "seated": 180,
+        "cpuMs": 697750,
+        "rssBytes": 439697408,
+        "heapBytes": 13105044,
+        "messages": 65132,
+        "seated": 197,
+        "queued": 0,
+        "consistent": null,
+        "flags": {
+          "growth-too-fast": 3,
+          "energy-over": 1,
+          "health-over": 2,
+          "authority-only": 804
+        },
+        "read": null
+      },
+      {
+        "minute": 39,
+        "cpuMs": 700470,
+        "rssBytes": 462639104,
+        "heapBytes": 13267668,
+        "messages": 66643,
+        "seated": 195,
+        "queued": 0,
+        "consistent": null,
+        "flags": {
+          "growth-too-fast": 3,
+          "energy-over": 1,
+          "health-over": 2,
+          "authority-only": 818
+        },
+        "read": null
+      },
+      {
+        "minute": 40,
+        "cpuMs": 703270,
+        "rssBytes": 461602816,
+        "heapBytes": 14755564,
+        "messages": 68281,
+        "seated": 196,
         "queued": 0,
         "consistent": {
           "kinds": {},
           "first": []
         },
         "flags": {
-          "biomass-over-max": 4,
-          "growth-too-fast": 88,
-          "energy-over": 18,
-          "health-over": 74,
-          "clock-too-fast": 231,
-          "claim-over": 1,
-          "authority-only": 944
+          "growth-too-fast": 3,
+          "energy-over": 1,
+          "health-over": 2,
+          "authority-only": 835
+        },
+        "read": {
+          "cpuMs": 141580,
+          "messages": 4322
         }
       },
       {
-        "minute": 50,
-        "cpuMs": 2956430,
-        "rssBytes": 1069428736,
-        "messages": 144802,
-        "seated": 182,
+        "minute": 41,
+        "cpuMs": 845030,
+        "rssBytes": 548831232,
+        "heapBytes": 13330560,
+        "messages": 72637,
+        "seated": 194,
+        "queued": 0,
+        "consistent": null,
+        "flags": {
+          "growth-too-fast": 3,
+          "energy-over": 1,
+          "health-over": 2,
+          "claim-over": 1,
+          "authority-only": 853
+        },
+        "read": null
+      },
+      {
+        "minute": 42,
+        "cpuMs": 845200,
+        "rssBytes": 440922112,
+        "heapBytes": 13159872,
+        "messages": 72663,
+        "seated": 194,
+        "queued": 0,
+        "consistent": null,
+        "flags": {
+          "growth-too-fast": 3,
+          "energy-over": 1,
+          "health-over": 2,
+          "claim-over": 1,
+          "authority-only": 854
+        },
+        "read": null
+      },
+      {
+        "minute": 43,
+        "cpuMs": 845340,
+        "rssBytes": 438841344,
+        "heapBytes": 13156884,
+        "messages": 72714,
+        "seated": 193,
+        "queued": 0,
+        "consistent": null,
+        "flags": {
+          "growth-too-fast": 3,
+          "energy-over": 1,
+          "health-over": 2,
+          "claim-over": 1,
+          "authority-only": 854
+        },
+        "read": null
+      },
+      {
+        "minute": 44,
+        "cpuMs": 848620,
+        "rssBytes": 467587072,
+        "heapBytes": 13411216,
+        "messages": 74559,
+        "seated": 192,
+        "queued": 0,
+        "consistent": null,
+        "flags": {
+          "growth-too-fast": 3,
+          "energy-over": 1,
+          "health-over": 2,
+          "claim-over": 1,
+          "authority-only": 873
+        },
+        "read": null
+      },
+      {
+        "minute": 45,
+        "cpuMs": 851680,
+        "rssBytes": 466403328,
+        "heapBytes": 13211776,
+        "messages": 76168,
+        "seated": 199,
         "queued": 0,
         "consistent": {
           "kinds": {},
           "first": []
         },
         "flags": {
-          "biomass-over-max": 5,
-          "growth-too-fast": 146,
-          "energy-over": 36,
-          "health-over": 121,
-          "clock-too-fast": 291,
-          "claim-over": 2,
-          "authority-only": 1086
+          "growth-too-fast": 3,
+          "energy-over": 1,
+          "health-over": 2,
+          "claim-over": 1,
+          "authority-only": 887
+        },
+        "read": {
+          "cpuMs": 160390,
+          "messages": 4929
+        }
+      },
+      {
+        "minute": 46,
+        "cpuMs": 1012250,
+        "rssBytes": 554901504,
+        "heapBytes": 13316704,
+        "messages": 81148,
+        "seated": 197,
+        "queued": 0,
+        "consistent": null,
+        "flags": {
+          "growth-too-fast": 4,
+          "energy-over": 1,
+          "health-over": 2,
+          "claim-over": 1,
+          "authority-only": 911
+        },
+        "read": null
+      },
+      {
+        "minute": 47,
+        "cpuMs": 1012480,
+        "rssBytes": 445140992,
+        "heapBytes": 13839816,
+        "messages": 81208,
+        "seated": 197,
+        "queued": 0,
+        "consistent": null,
+        "flags": {
+          "growth-too-fast": 4,
+          "energy-over": 1,
+          "health-over": 2,
+          "claim-over": 1,
+          "authority-only": 911
+        },
+        "read": null
+      },
+      {
+        "minute": 48,
+        "cpuMs": 1012600,
+        "rssBytes": 443371520,
+        "heapBytes": 13324140,
+        "messages": 81239,
+        "seated": 197,
+        "queued": 0,
+        "consistent": null,
+        "flags": {
+          "growth-too-fast": 4,
+          "energy-over": 1,
+          "health-over": 2,
+          "claim-over": 1,
+          "authority-only": 911
+        },
+        "read": null
+      },
+      {
+        "minute": 49,
+        "cpuMs": 1014750,
+        "rssBytes": 466182144,
+        "heapBytes": 13290352,
+        "messages": 82269,
+        "seated": 195,
+        "queued": 0,
+        "consistent": null,
+        "flags": {
+          "growth-too-fast": 4,
+          "energy-over": 1,
+          "health-over": 2,
+          "claim-over": 1,
+          "authority-only": 924
+        },
+        "read": null
+      },
+      {
+        "minute": 50,
+        "cpuMs": 1018180,
+        "rssBytes": 471830528,
+        "heapBytes": 13653844,
+        "messages": 84085,
+        "seated": 198,
+        "queued": 0,
+        "consistent": {
+          "kinds": {},
+          "first": []
+        },
+        "flags": {
+          "growth-too-fast": 4,
+          "energy-over": 1,
+          "health-over": 2,
+          "claim-over": 1,
+          "authority-only": 938
+        },
+        "read": {
+          "cpuMs": 169220,
+          "messages": 5164
         }
       },
       {
         "minute": 51,
-        "cpuMs": 2986080,
-        "rssBytes": 1077702656,
-        "messages": 147609,
-        "seated": 183,
+        "cpuMs": 1187660,
+        "rssBytes": 554340352,
+        "heapBytes": 13350612,
+        "messages": 89316,
+        "seated": 196,
         "queued": 0,
-        "consistent": {
-          "kinds": {},
-          "first": []
-        },
+        "consistent": null,
         "flags": {
-          "biomass-over-max": 5,
-          "growth-too-fast": 147,
-          "energy-over": 36,
-          "health-over": 122,
-          "clock-too-fast": 292,
-          "claim-over": 2,
-          "authority-only": 1093
-        }
+          "growth-too-fast": 6,
+          "energy-over": 1,
+          "health-over": 4,
+          "claim-over": 1,
+          "authority-only": 969
+        },
+        "read": null
       },
       {
         "minute": 52,
-        "cpuMs": 3015270,
-        "rssBytes": 1069395968,
-        "messages": 148145,
-        "seated": 186,
+        "cpuMs": 1187780,
+        "rssBytes": 444063744,
+        "heapBytes": 13290100,
+        "messages": 89332,
+        "seated": 196,
         "queued": 0,
-        "consistent": {
-          "kinds": {},
-          "first": []
-        },
+        "consistent": null,
         "flags": {
-          "biomass-over-max": 5,
-          "growth-too-fast": 152,
-          "energy-over": 37,
-          "health-over": 125,
-          "clock-too-fast": 293,
-          "claim-over": 2,
-          "authority-only": 1104
-        }
+          "growth-too-fast": 6,
+          "energy-over": 1,
+          "health-over": 4,
+          "claim-over": 1,
+          "authority-only": 969
+        },
+        "read": null
       },
       {
         "minute": 53,
-        "cpuMs": 3045990,
-        "rssBytes": 1076551680,
-        "messages": 149664,
-        "seated": 184,
+        "cpuMs": 1187950,
+        "rssBytes": 448200704,
+        "heapBytes": 13363912,
+        "messages": 89380,
+        "seated": 196,
         "queued": 0,
-        "consistent": {
-          "kinds": {},
-          "first": []
-        },
+        "consistent": null,
         "flags": {
-          "biomass-over-max": 5,
-          "growth-too-fast": 152,
-          "energy-over": 37,
-          "health-over": 125,
-          "clock-too-fast": 293,
-          "claim-over": 2,
-          "authority-only": 1117
-        }
+          "growth-too-fast": 6,
+          "energy-over": 1,
+          "health-over": 4,
+          "claim-over": 1,
+          "authority-only": 969
+        },
+        "read": null
       },
       {
         "minute": 54,
-        "cpuMs": 3075170,
-        "rssBytes": 1076973568,
-        "messages": 151305,
-        "seated": 177,
+        "cpuMs": 1189300,
+        "rssBytes": 461099008,
+        "heapBytes": 13667904,
+        "messages": 90030,
+        "seated": 197,
+        "queued": 0,
+        "consistent": null,
+        "flags": {
+          "growth-too-fast": 6,
+          "energy-over": 1,
+          "health-over": 4,
+          "claim-over": 1,
+          "authority-only": 978
+        },
+        "read": null
+      },
+      {
+        "minute": 55,
+        "cpuMs": 1192720,
+        "rssBytes": 474460160,
+        "heapBytes": 13742560,
+        "messages": 91742,
+        "seated": 196,
         "queued": 0,
         "consistent": {
           "kinds": {},
           "first": []
         },
         "flags": {
-          "biomass-over-max": 5,
-          "growth-too-fast": 156,
-          "energy-over": 39,
-          "health-over": 129,
-          "clock-too-fast": 293,
-          "claim-over": 2,
-          "authority-only": 1127
+          "growth-too-fast": 6,
+          "energy-over": 1,
+          "health-over": 4,
+          "claim-over": 1,
+          "authority-only": 994
+        },
+        "read": {
+          "cpuMs": 179030,
+          "messages": 5859
+        }
+      },
+      {
+        "minute": 56,
+        "cpuMs": 1371940,
+        "rssBytes": 556523520,
+        "heapBytes": 13861532,
+        "messages": 97666,
+        "seated": 192,
+        "queued": 0,
+        "consistent": null,
+        "flags": {
+          "growth-too-fast": 7,
+          "energy-over": 1,
+          "health-over": 5,
+          "claim-over": 1,
+          "authority-only": 1029
+        },
+        "read": null
+      },
+      {
+        "minute": 57,
+        "cpuMs": 1372120,
+        "rssBytes": 448929792,
+        "heapBytes": 13475832,
+        "messages": 97705,
+        "seated": 192,
+        "queued": 0,
+        "consistent": null,
+        "flags": {
+          "growth-too-fast": 7,
+          "energy-over": 1,
+          "health-over": 5,
+          "claim-over": 1,
+          "authority-only": 1029
+        },
+        "read": null
+      },
+      {
+        "minute": 58,
+        "cpuMs": 1372270,
+        "rssBytes": 448180224,
+        "heapBytes": 13627996,
+        "messages": 97745,
+        "seated": 194,
+        "queued": 0,
+        "consistent": null,
+        "flags": {
+          "growth-too-fast": 7,
+          "energy-over": 1,
+          "health-over": 5,
+          "claim-over": 1,
+          "authority-only": 1030
+        },
+        "read": null
+      },
+      {
+        "minute": 59,
+        "cpuMs": 1373200,
+        "rssBytes": 458215424,
+        "heapBytes": 13306084,
+        "messages": 98240,
+        "seated": 193,
+        "queued": 0,
+        "consistent": null,
+        "flags": {
+          "growth-too-fast": 7,
+          "energy-over": 1,
+          "health-over": 5,
+          "claim-over": 1,
+          "authority-only": 1034
+        },
+        "read": null
+      },
+      {
+        "minute": 60,
+        "cpuMs": 1376320,
+        "rssBytes": 476160000,
+        "heapBytes": 13427468,
+        "messages": 99819,
+        "seated": 194,
+        "queued": 0,
+        "consistent": {
+          "kinds": {},
+          "first": []
+        },
+        "flags": {
+          "growth-too-fast": 8,
+          "energy-over": 1,
+          "health-over": 5,
+          "claim-over": 1,
+          "authority-only": 1045
+        },
+        "read": {
+          "cpuMs": 178640,
+          "messages": 5490
         }
       }
     ],
@@ -995,1002 +1456,1121 @@
       {
         "page": 1,
         "minute": 1,
-        "heapBytes": 10171016,
+        "heapBytes": 10532096,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 1166.5
+        "frameP95Ms": 83.29999999998836
       },
       {
         "page": 2,
         "minute": 1,
-        "heapBytes": 11030624,
+        "heapBytes": 10624756,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 233.29999999998836
+        "frameP95Ms": 83.29999999998836
       },
       {
         "page": 1,
         "minute": 2,
-        "heapBytes": 9731068,
+        "heapBytes": 10434000,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 1133.2000000000116
+        "frameP95Ms": 116.59999999997672
       },
       {
         "page": 2,
         "minute": 2,
-        "heapBytes": 11353364,
+        "heapBytes": 10933488,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 183.29999999998836
+        "frameP95Ms": 100
       },
       {
         "page": 1,
         "minute": 3,
-        "heapBytes": 9602052,
+        "heapBytes": 10444232,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 1116.600000000035
+        "frameP95Ms": 116.70000000001164
       },
       {
         "page": 2,
         "minute": 3,
-        "heapBytes": 11714320,
+        "heapBytes": 11068980,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 166.59999999997672
+        "frameP95Ms": 116.70000000001164
       },
       {
         "page": 1,
         "minute": 4,
-        "heapBytes": 9632208,
+        "heapBytes": 10424980,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 1116.5999999999767
+        "frameP95Ms": 116.70000000001164
       },
       {
         "page": 2,
         "minute": 4,
-        "heapBytes": 11681288,
+        "heapBytes": 11408156,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 150
+        "frameP95Ms": 116.80000000004657
       },
       {
         "page": 1,
         "minute": 5,
-        "heapBytes": 9737160,
+        "heapBytes": 10599380,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 1116.600000000035
+        "frameP95Ms": 116.69999999995343
       },
       {
         "page": 2,
         "minute": 5,
-        "heapBytes": 11608756,
+        "heapBytes": 10967424,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 150.09999999997672
+        "frameP95Ms": 100.09999999997672
       },
       {
         "page": 1,
         "minute": 6,
-        "heapBytes": 10398536,
+        "heapBytes": 9988784,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 1116.5999999999767
+        "frameP95Ms": 83.29999999998836
       },
       {
         "page": 2,
         "minute": 6,
-        "heapBytes": 11290776,
+        "heapBytes": 11078260,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 150
+        "frameP95Ms": 100
       },
       {
         "page": 1,
         "minute": 7,
-        "heapBytes": 10103304,
+        "heapBytes": 10164856,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 1100
+        "frameP95Ms": 83.39999999996508
       },
       {
         "page": 2,
         "minute": 7,
-        "heapBytes": 11391308,
+        "heapBytes": 10779560,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 150
+        "frameP95Ms": 83.39999999996508
       },
       {
         "page": 1,
         "minute": 8,
-        "heapBytes": 10241372,
+        "heapBytes": 10825024,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 1116.6999999999534
+        "frameP95Ms": 83.39999999996508
       },
       {
         "page": 2,
         "minute": 8,
-        "heapBytes": 11676000,
+        "heapBytes": 11577028,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 150
+        "frameP95Ms": 83.29999999998836
       },
       {
         "page": 1,
         "minute": 9,
-        "heapBytes": 10407652,
+        "heapBytes": 10708996,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 1116.5
+        "frameP95Ms": 83.30000000004657
       },
       {
         "page": 2,
         "minute": 9,
-        "heapBytes": 11822480,
+        "heapBytes": 11346596,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 166.59999999997672
+        "frameP95Ms": 83.30000000004657
       },
       {
         "page": 1,
         "minute": 10,
-        "heapBytes": 10545308,
+        "heapBytes": 10883612,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 1200
+        "frameP95Ms": 100
       },
       {
         "page": 2,
         "minute": 10,
-        "heapBytes": 12457032,
+        "heapBytes": 11243132,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 283.30000000004657
+        "frameP95Ms": 100
       },
       {
         "page": 1,
         "minute": 11,
-        "heapBytes": 10121860,
+        "heapBytes": 10628980,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 1183.3000000000466
+        "frameP95Ms": 100
       },
       {
         "page": 2,
         "minute": 11,
-        "heapBytes": 10848552,
+        "heapBytes": 11151976,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 300
+        "frameP95Ms": 83.30000000004657
       },
       {
         "page": 1,
         "minute": 12,
-        "heapBytes": 10927172,
+        "heapBytes": 10551084,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 1183.2999999999302
+        "frameP95Ms": 83.40000000002328
       },
       {
         "page": 2,
         "minute": 12,
-        "heapBytes": 10846940,
+        "heapBytes": 10916092,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 266.5999999999767
+        "frameP95Ms": 83.30000000004657
       },
       {
         "page": 1,
         "minute": 13,
-        "heapBytes": 10701716,
+        "heapBytes": 10264804,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 1116.5
+        "frameP95Ms": 83.40000000002328
       },
       {
         "page": 2,
         "minute": 13,
-        "heapBytes": 11152120,
+        "heapBytes": 11204756,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 150.09999999997672
+        "frameP95Ms": 83.30000000004657
       },
       {
         "page": 1,
         "minute": 14,
-        "heapBytes": 10271436,
+        "heapBytes": 10361512,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 1116.6999999999534
+        "frameP95Ms": 83.39999999990687
       },
       {
         "page": 2,
         "minute": 14,
-        "heapBytes": 10939640,
+        "heapBytes": 11683416,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 150
+        "frameP95Ms": 83.30000000004657
       },
       {
         "page": 1,
         "minute": 15,
-        "heapBytes": 10680836,
+        "heapBytes": 10427884,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 1116.5999999999767
+        "frameP95Ms": 100.09999999997672
       },
       {
         "page": 2,
         "minute": 15,
-        "heapBytes": 11215516,
+        "heapBytes": 11786452,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 150
+        "frameP95Ms": 100
       },
       {
         "page": 1,
         "minute": 16,
-        "heapBytes": 11447816,
+        "heapBytes": 10228532,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 1116.6999999999534
+        "frameP95Ms": 99.90000000002328
       },
       {
         "page": 2,
         "minute": 16,
-        "heapBytes": 11208404,
+        "heapBytes": 11602724,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 166.59999999997672
+        "frameP95Ms": 116.80000000004657
       },
       {
         "page": 1,
         "minute": 17,
-        "heapBytes": 10076732,
+        "heapBytes": 10659792,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 1116.6000000000931
+        "frameP95Ms": 83.40000000002328
       },
       {
         "page": 2,
         "minute": 17,
-        "heapBytes": 11298528,
+        "heapBytes": 11571424,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 150.0999999998603
+        "frameP95Ms": 83.30000000004657
       },
       {
         "page": 1,
         "minute": 18,
-        "heapBytes": 10771076,
+        "heapBytes": 10647332,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 1116.6000000000931
+        "frameP95Ms": 83.39999999990687
       },
       {
         "page": 2,
         "minute": 18,
-        "heapBytes": 10956468,
+        "heapBytes": 11711376,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 150
+        "frameP95Ms": 83.30000000004657
       },
       {
         "page": 1,
         "minute": 19,
-        "heapBytes": 10737292,
+        "heapBytes": 11032876,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 1116.5999999998603
+        "frameP95Ms": 83.30000000004657
       },
       {
         "page": 2,
         "minute": 19,
-        "heapBytes": 11008684,
+        "heapBytes": 11611188,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 150
+        "frameP95Ms": 83.30000000004657
       },
       {
         "page": 1,
         "minute": 20,
-        "heapBytes": 10325216,
+        "heapBytes": 10764112,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 1116.7000000001863
+        "frameP95Ms": 100.0999999998603
       },
       {
         "page": 2,
         "minute": 20,
-        "heapBytes": 10905556,
+        "heapBytes": 11893672,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 150
+        "frameP95Ms": 100
       },
       {
         "page": 1,
         "minute": 21,
-        "heapBytes": 11166648,
+        "heapBytes": 11173264,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 1116.6000000000931
+        "frameP95Ms": 83.5
       },
       {
         "page": 2,
         "minute": 21,
-        "heapBytes": 11746072,
+        "heapBytes": 11208284,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 166.60000000009313
+        "frameP95Ms": 83.4000000001397
       },
       {
         "page": 1,
         "minute": 22,
-        "heapBytes": 11499360,
+        "heapBytes": 10285472,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 1116.6999999999534
+        "frameP95Ms": 116.60000000009313
       },
       {
         "page": 2,
         "minute": 22,
-        "heapBytes": 11446540,
+        "heapBytes": 11290496,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 150.10000000009313
+        "frameP95Ms": 83.39999999990687
       },
       {
         "page": 1,
         "minute": 23,
-        "heapBytes": 11521732,
+        "heapBytes": 11227776,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 1116.6999999999534
+        "frameP95Ms": 83.39999999990687
       },
       {
         "page": 2,
         "minute": 23,
-        "heapBytes": 11276804,
+        "heapBytes": 11739784,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 150
+        "frameP95Ms": 83.39999999990687
       },
       {
         "page": 1,
         "minute": 24,
-        "heapBytes": 11811508,
+        "heapBytes": 11169992,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 1116.7000000001863
+        "frameP95Ms": 83.39999999990687
       },
       {
         "page": 2,
         "minute": 24,
-        "heapBytes": 11181364,
+        "heapBytes": 11331404,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 150
+        "frameP95Ms": 83.30000000004657
       },
       {
         "page": 1,
         "minute": 25,
-        "heapBytes": 11180728,
+        "heapBytes": 12108208,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 1116.6999999999534
+        "frameP95Ms": 100.10000000009313
       },
       {
         "page": 2,
         "minute": 25,
-        "heapBytes": 11514112,
+        "heapBytes": 11235232,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 150
+        "frameP95Ms": 100.10000000009313
       },
       {
         "page": 1,
         "minute": 26,
-        "heapBytes": 11086852,
+        "heapBytes": 12174272,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 1116.5999999998603
+        "frameP95Ms": 100
       },
       {
         "page": 2,
         "minute": 26,
-        "heapBytes": 11394104,
+        "heapBytes": 11158804,
         "geometries": 11,
         "textures": 1,
         "programs": 9,
-        "frameP95Ms": 150
-      },
-      {
-        "page": 1,
-        "minute": 27,
-        "heapBytes": 11088888,
-        "geometries": 11,
-        "textures": 1,
-        "programs": 9,
-        "frameP95Ms": 1100
-      },
-      {
-        "page": 2,
-        "minute": 27,
-        "heapBytes": 11228816,
-        "geometries": 11,
-        "textures": 1,
-        "programs": 9,
-        "frameP95Ms": 133.39999999990687
-      },
-      {
-        "page": 1,
-        "minute": 28,
-        "heapBytes": 9255508,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 1200
-      },
-      {
-        "page": 2,
-        "minute": 28,
-        "heapBytes": 10222728,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 283.3000000000029
-      },
-      {
-        "page": 1,
-        "minute": 29,
-        "heapBytes": 8752508,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 1166.6000000000058
-      },
-      {
-        "page": 2,
-        "minute": 29,
-        "heapBytes": 10292048,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 316.69999999998254
-      },
-      {
-        "page": 1,
-        "minute": 30,
-        "heapBytes": 8767068,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 1116.7000000000116
-      },
-      {
-        "page": 2,
-        "minute": 30,
-        "heapBytes": 9831664,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 166.69999999998254
-      },
-      {
-        "page": 1,
-        "minute": 31,
-        "heapBytes": 8805272,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 1116.6000000000058
-      },
-      {
-        "page": 2,
-        "minute": 31,
-        "heapBytes": 9637568,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 150
-      },
-      {
-        "page": 1,
-        "minute": 32,
-        "heapBytes": 9124508,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 1100
-      },
-      {
-        "page": 2,
-        "minute": 32,
-        "heapBytes": 9667928,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 150
-      },
-      {
-        "page": 1,
-        "minute": 33,
-        "heapBytes": 8824396,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 1116.600000000035
-      },
-      {
-        "page": 2,
-        "minute": 33,
-        "heapBytes": 10041512,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 150
-      },
-      {
-        "page": 1,
-        "minute": 34,
-        "heapBytes": 9551428,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 1100
-      },
-      {
-        "page": 2,
-        "minute": 34,
-        "heapBytes": 10075068,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 150
-      },
-      {
-        "page": 1,
-        "minute": 35,
-        "heapBytes": 9068156,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 1116.600000000035
-      },
-      {
-        "page": 2,
-        "minute": 35,
-        "heapBytes": 9768788,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 150
-      },
-      {
-        "page": 1,
-        "minute": 36,
-        "heapBytes": 8901364,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 1100
-      },
-      {
-        "page": 2,
-        "minute": 36,
-        "heapBytes": 9813828,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 150
-      },
-      {
-        "page": 1,
-        "minute": 37,
-        "heapBytes": 8910956,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 1100
-      },
-      {
-        "page": 2,
-        "minute": 37,
-        "heapBytes": 9927176,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 149.90000000002328
-      },
-      {
-        "page": 1,
-        "minute": 38,
-        "heapBytes": 9599448,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 1116.600000000035
-      },
-      {
-        "page": 2,
-        "minute": 38,
-        "heapBytes": 10029452,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 150
-      },
-      {
-        "page": 1,
-        "minute": 39,
-        "heapBytes": 9701908,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 1150
-      },
-      {
-        "page": 2,
-        "minute": 39,
-        "heapBytes": 9410036,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 166.59999999997672
-      },
-      {
-        "page": 1,
-        "minute": 40,
-        "heapBytes": 9575560,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 1183.3000000000466
-      },
-      {
-        "page": 2,
-        "minute": 40,
-        "heapBytes": 9799980,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 299.9000000000233
-      },
-      {
-        "page": 1,
-        "minute": 41,
-        "heapBytes": 9204396,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 1166.6999999999534
-      },
-      {
-        "page": 2,
-        "minute": 41,
-        "heapBytes": 9809272,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 283.30000000004657
-      },
-      {
-        "page": 1,
-        "minute": 42,
-        "heapBytes": 10459408,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 1100
-      },
-      {
-        "page": 2,
-        "minute": 42,
-        "heapBytes": 10180292,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 133.29999999993015
-      },
-      {
-        "page": 1,
-        "minute": 43,
-        "heapBytes": 9242120,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 1116.6000000000931
-      },
-      {
-        "page": 2,
-        "minute": 43,
-        "heapBytes": 10280896,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 133.39999999990687
-      },
-      {
-        "page": 1,
-        "minute": 44,
-        "heapBytes": 9359688,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 1116.6000000000931
-      },
-      {
-        "page": 2,
-        "minute": 44,
-        "heapBytes": 10330416,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 149.89999999990687
-      },
-      {
-        "page": 1,
-        "minute": 45,
-        "heapBytes": 9369712,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 1100
-      },
-      {
-        "page": 2,
-        "minute": 45,
-        "heapBytes": 10277480,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 150
-      },
-      {
-        "page": 1,
-        "minute": 46,
-        "heapBytes": 9451204,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
-        "frameP95Ms": 1100
-      },
-      {
-        "page": 2,
-        "minute": 46,
-        "heapBytes": 9724964,
-        "geometries": 9,
-        "textures": 1,
-        "programs": 7,
         "frameP95Ms": 133.30000000004657
       },
       {
         "page": 1,
-        "minute": 47,
-        "heapBytes": 9481780,
+        "minute": 27,
+        "heapBytes": 11578788,
+        "geometries": 11,
+        "textures": 1,
+        "programs": 9,
+        "frameP95Ms": 150
+      },
+      {
+        "page": 2,
+        "minute": 27,
+        "heapBytes": 11532892,
+        "geometries": 11,
+        "textures": 1,
+        "programs": 9,
+        "frameP95Ms": 83.30000000004657
+      },
+      {
+        "page": 1,
+        "minute": 28,
+        "heapBytes": 12288904,
+        "geometries": 11,
+        "textures": 1,
+        "programs": 9,
+        "frameP95Ms": 83.39999999990687
+      },
+      {
+        "page": 2,
+        "minute": 28,
+        "heapBytes": 11584764,
+        "geometries": 11,
+        "textures": 1,
+        "programs": 9,
+        "frameP95Ms": 83.30000000004657
+      },
+      {
+        "page": 1,
+        "minute": 29,
+        "heapBytes": 11338612,
+        "geometries": 10,
+        "textures": 1,
+        "programs": 8,
+        "frameP95Ms": 83.30000000004657
+      },
+      {
+        "page": 2,
+        "minute": 29,
+        "heapBytes": 12313032,
+        "geometries": 11,
+        "textures": 1,
+        "programs": 9,
+        "frameP95Ms": 83.39999999990687
+      },
+      {
+        "page": 1,
+        "minute": 30,
+        "heapBytes": 10070572,
         "geometries": 9,
         "textures": 1,
         "programs": 7,
-        "frameP95Ms": 1116.5999999998603
+        "frameP95Ms": 116.59999999999854
+      },
+      {
+        "page": 2,
+        "minute": 30,
+        "heapBytes": 9755928,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 100.10000000000582
+      },
+      {
+        "page": 1,
+        "minute": 31,
+        "heapBytes": 9954372,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 100
+      },
+      {
+        "page": 2,
+        "minute": 31,
+        "heapBytes": 9368728,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 83.39999999999418
+      },
+      {
+        "page": 1,
+        "minute": 32,
+        "heapBytes": 9786468,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 99.89999999999418
+      },
+      {
+        "page": 2,
+        "minute": 32,
+        "heapBytes": 9683216,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 100
+      },
+      {
+        "page": 1,
+        "minute": 33,
+        "heapBytes": 9580504,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 83.30000000001746
+      },
+      {
+        "page": 2,
+        "minute": 33,
+        "heapBytes": 9611832,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 83.30000000001746
+      },
+      {
+        "page": 1,
+        "minute": 34,
+        "heapBytes": 9636064,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 83.30000000001746
+      },
+      {
+        "page": 2,
+        "minute": 34,
+        "heapBytes": 9517048,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 83.29999999998836
+      },
+      {
+        "page": 1,
+        "minute": 35,
+        "heapBytes": 9416468,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 100
+      },
+      {
+        "page": 2,
+        "minute": 35,
+        "heapBytes": 9415452,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 100
+      },
+      {
+        "page": 1,
+        "minute": 36,
+        "heapBytes": 9740932,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 100
+      },
+      {
+        "page": 2,
+        "minute": 36,
+        "heapBytes": 9588428,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 116.70000000001164
+      },
+      {
+        "page": 1,
+        "minute": 37,
+        "heapBytes": 9728616,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 100
+      },
+      {
+        "page": 2,
+        "minute": 37,
+        "heapBytes": 9443132,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 133.29999999998836
+      },
+      {
+        "page": 1,
+        "minute": 38,
+        "heapBytes": 9251992,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 83.29999999998836
+      },
+      {
+        "page": 2,
+        "minute": 38,
+        "heapBytes": 9185956,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 83.29999999998836
+      },
+      {
+        "page": 1,
+        "minute": 39,
+        "heapBytes": 9239704,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 83.30000000004657
+      },
+      {
+        "page": 2,
+        "minute": 39,
+        "heapBytes": 9407224,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 83.30000000004657
+      },
+      {
+        "page": 1,
+        "minute": 40,
+        "heapBytes": 9488580,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 100
+      },
+      {
+        "page": 2,
+        "minute": 40,
+        "heapBytes": 10080588,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 100
+      },
+      {
+        "page": 1,
+        "minute": 41,
+        "heapBytes": 9604332,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 100
+      },
+      {
+        "page": 2,
+        "minute": 41,
+        "heapBytes": 9962636,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 100
+      },
+      {
+        "page": 1,
+        "minute": 42,
+        "heapBytes": 9809684,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 116.59999999997672
+      },
+      {
+        "page": 2,
+        "minute": 42,
+        "heapBytes": 9665288,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 100
+      },
+      {
+        "page": 1,
+        "minute": 43,
+        "heapBytes": 9398244,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 116.59999999997672
+      },
+      {
+        "page": 2,
+        "minute": 43,
+        "heapBytes": 9327332,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 83.19999999995343
+      },
+      {
+        "page": 1,
+        "minute": 44,
+        "heapBytes": 9359160,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 83.30000000004657
+      },
+      {
+        "page": 2,
+        "minute": 44,
+        "heapBytes": 9263696,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 83.30000000004657
+      },
+      {
+        "page": 1,
+        "minute": 45,
+        "heapBytes": 9293116,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 100.09999999997672
+      },
+      {
+        "page": 2,
+        "minute": 45,
+        "heapBytes": 9919800,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 100.09999999997672
+      },
+      {
+        "page": 1,
+        "minute": 46,
+        "heapBytes": 9742240,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 100
+      },
+      {
+        "page": 2,
+        "minute": 46,
+        "heapBytes": 9626900,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 133.39999999990687
+      },
+      {
+        "page": 1,
+        "minute": 47,
+        "heapBytes": 9645788,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 116.80000000004657
       },
       {
         "page": 2,
         "minute": 47,
-        "heapBytes": 10097216,
+        "heapBytes": 9654592,
         "geometries": 9,
         "textures": 1,
         "programs": 7,
-        "frameP95Ms": 150
+        "frameP95Ms": 83.39999999990687
       },
       {
         "page": 1,
         "minute": 48,
-        "heapBytes": 9499580,
+        "heapBytes": 9706340,
         "geometries": 9,
         "textures": 1,
         "programs": 7,
-        "frameP95Ms": 1116.6000000000931
+        "frameP95Ms": 100
       },
       {
         "page": 2,
         "minute": 48,
-        "heapBytes": 10550892,
+        "heapBytes": 9853196,
         "geometries": 9,
         "textures": 1,
         "programs": 7,
-        "frameP95Ms": 149.89999999990687
+        "frameP95Ms": 100
       },
       {
         "page": 1,
         "minute": 49,
-        "heapBytes": 9515272,
+        "heapBytes": 9785424,
         "geometries": 9,
         "textures": 1,
         "programs": 7,
-        "frameP95Ms": 1116.5999999998603
+        "frameP95Ms": 83.39999999990687
       },
       {
         "page": 2,
         "minute": 49,
-        "heapBytes": 9774928,
+        "heapBytes": 9282256,
         "geometries": 9,
         "textures": 1,
         "programs": 7,
-        "frameP95Ms": 150
+        "frameP95Ms": 83.39999999990687
       },
       {
         "page": 1,
         "minute": 50,
-        "heapBytes": 9877048,
+        "heapBytes": 10060148,
         "geometries": 9,
         "textures": 1,
         "programs": 7,
-        "frameP95Ms": 1116.5
+        "frameP95Ms": 116.5999999998603
       },
       {
         "page": 2,
         "minute": 50,
-        "heapBytes": 9994588,
+        "heapBytes": 10031740,
         "geometries": 9,
         "textures": 1,
         "programs": 7,
-        "frameP95Ms": 150
+        "frameP95Ms": 116.5999999998603
       },
       {
         "page": 1,
         "minute": 51,
-        "heapBytes": 9554612,
+        "heapBytes": 9928528,
         "geometries": 9,
         "textures": 1,
         "programs": 7,
-        "frameP95Ms": 1116.5999999998603
+        "frameP95Ms": 100
       },
       {
         "page": 2,
         "minute": 51,
-        "heapBytes": 10414224,
+        "heapBytes": 9636684,
         "geometries": 9,
         "textures": 1,
         "programs": 7,
-        "frameP95Ms": 150
+        "frameP95Ms": 100
       },
       {
         "page": 1,
         "minute": 52,
-        "heapBytes": 9786684,
+        "heapBytes": 9879592,
         "geometries": 9,
         "textures": 1,
         "programs": 7,
-        "frameP95Ms": 1116.5
+        "frameP95Ms": 116.80000000004657
       },
       {
         "page": 2,
         "minute": 52,
-        "heapBytes": 9752244,
+        "heapBytes": 9606868,
         "geometries": 9,
         "textures": 1,
         "programs": 7,
-        "frameP95Ms": 150
+        "frameP95Ms": 116.70000000018626
       },
       {
         "page": 1,
         "minute": 53,
-        "heapBytes": 10285204,
+        "heapBytes": 9911944,
         "geometries": 9,
         "textures": 1,
         "programs": 7,
-        "frameP95Ms": 1100
+        "frameP95Ms": 116.69999999995343
       },
       {
         "page": 2,
         "minute": 53,
-        "heapBytes": 10307664,
+        "heapBytes": 9700496,
         "geometries": 9,
         "textures": 1,
         "programs": 7,
-        "frameP95Ms": 150
+        "frameP95Ms": 99.89999999990687
       },
       {
         "page": 1,
         "minute": 54,
-        "heapBytes": 9567876,
+        "heapBytes": 9399060,
         "geometries": 9,
         "textures": 1,
         "programs": 7,
-        "frameP95Ms": 1099.9000000001397
+        "frameP95Ms": 83.39999999990687
       },
       {
         "page": 2,
         "minute": 54,
-        "heapBytes": 10437064,
+        "heapBytes": 10219392,
         "geometries": 9,
         "textures": 1,
         "programs": 7,
-        "frameP95Ms": 150
+        "frameP95Ms": 83.39999999990687
+      },
+      {
+        "page": 1,
+        "minute": 55,
+        "heapBytes": 9521932,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 116.5999999998603
+      },
+      {
+        "page": 2,
+        "minute": 55,
+        "heapBytes": 9666152,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 100.10000000009313
+      },
+      {
+        "page": 1,
+        "minute": 56,
+        "heapBytes": 10275020,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 83.39999999990687
+      },
+      {
+        "page": 2,
+        "minute": 56,
+        "heapBytes": 10352120,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 100
+      },
+      {
+        "page": 1,
+        "minute": 57,
+        "heapBytes": 9683800,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 100
+      },
+      {
+        "page": 2,
+        "minute": 57,
+        "heapBytes": 9951672,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 83.39999999990687
+      },
+      {
+        "page": 1,
+        "minute": 58,
+        "heapBytes": 9391260,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 116.60000000009313
+      },
+      {
+        "page": 2,
+        "minute": 58,
+        "heapBytes": 9583296,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 100
+      },
+      {
+        "page": 1,
+        "minute": 59,
+        "heapBytes": 9853476,
+        "geometries": 10,
+        "textures": 1,
+        "programs": 8,
+        "frameP95Ms": 83.4000000001397
+      },
+      {
+        "page": 2,
+        "minute": 59,
+        "heapBytes": 10151100,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 99.89999999990687
+      },
+      {
+        "page": 1,
+        "minute": 60,
+        "heapBytes": 13341508,
+        "geometries": 10,
+        "textures": 1,
+        "programs": 8,
+        "frameP95Ms": 99.89999999990687
+      },
+      {
+        "page": 2,
+        "minute": 60,
+        "heapBytes": 10120808,
+        "geometries": 9,
+        "textures": 1,
+        "programs": 7,
+        "frameP95Ms": 100
       }
     ],
     "pageLives": [
       {
         "page": 1,
-        "hatches": 4,
+        "hatches": 5,
         "reloads": [
           30
         ],
         "courts": 0,
-        "errors": []
+        "errors": [
+          "pageerror: food c489_485_s1_k0 is not alive",
+          "pageerror: food c489_485_s1_k0 is not alive",
+          "pageerror: food c489_485_s1_k0 is not alive",
+          "pageerror: food c489_485_s1_k0 is not alive",
+          "pageerror: food c489_485_s1_k0 is not alive",
+          "pageerror: food c489_485_s1_k0 is not alive",
+          "pageerror: food c489_485_s1_k0 is not alive",
+          "pageerror: food c489_485_s1_k0 is not alive",
+          "pageerror: food c489_485_s1_k0 is not alive",
+          "pageerror: food c489_485_s1_k0 is not alive"
+        ]
       },
       {
         "page": 2,
         "hatches": 3,
         "reloads": [
-          30.1
+          30
         ],
         "courts": 0,
         "errors": []
       }
     ],
     "perPlayer": {
-      "messagesPerMinute": 17.134513842219558,
-      "rowsWrittenPerHour": 187.9648462048192
+      "messagesPerMinute": 8.782270897441016,
+      "rowsWrittenPerHour": 121.44360733942538
     },
     "pagesVerified": {
-      "checked": 2,
+      "checked": 3,
       "problems": []
     }
   }

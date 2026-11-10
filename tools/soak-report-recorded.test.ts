@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { checksOf, reportOf } from './soak-report';
 import type { Soak } from './soak-run';
 
-// The committed run (`docs/perf/soak.json`, M14 T14): the first full hour that was played to its end.
-// It fails, and the report says why; the checks and the report are rebuilt from the recorded JSON.
+// The committed run (`docs/perf/soak.json`, M14 T14e): the latest full hour played on a runner. It
+// fails, and the report says why; the checks and the report are rebuilt from the recorded JSON.
 
 const recorded = JSON.parse(
   readFileSync(new URL('../docs/perf/soak.json', import.meta.url), 'utf8'),
@@ -15,12 +15,13 @@ describe('the recorded soak', () => {
     const failed = checksOf(recorded)
       .filter((c) => !c.ok)
       .map((c) => c.name);
-    // It was recorded before the object's heap was sampled (M14 T14c), so the heap check can't hold.
-    expect(failed).toContain('authority heap level');
-    expect(failed).toContain('rows written per player-hour');
-    expect(failed).toContain('no socket closed for its rate');
-    // Every page check held: heap, resources and frame times stayed level over the hour.
-    expect(failed.filter((n) => n.startsWith('page '))).toEqual([]);
+    // What an hour of 200 clients now shows: no socket closed for its rate, the object's heap and CPU
+    // per message level, every creature consistent; and what is still open (T14f).
+    expect(failed).toEqual([
+      'no audit flag but authority-only',
+      'no audit flag at any sample',
+      'page 1 played and reloaded',
+    ]);
   });
 
   it('builds the committed report byte for byte', () => {
