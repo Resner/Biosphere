@@ -282,7 +282,7 @@ describe('inputs', () => {
     expect(await a.c.closed).toBe(CLOSE_RATE_LIMITED);
   });
 
-  it('count in their own window for a moment after the fight ended: the ones in flight when it did', async () => {
+  it('count in their own window for one rate window after the fight ended: the ones in flight when it did', async () => {
     const [a, b] = await fighters();
     const [start] = await lockIn(a, b, snap(b, ...NEAR.b, FULL), snap(a, ...NEAR.a, WEAK));
     for (let i = 0; i < 100 && (await locked(a)); i++) await advance(1000);
@@ -291,7 +291,11 @@ describe('inputs', () => {
     for (let i = 0; i < 25; i++) a.c.send({ t: 'input', enc: start.enc, f: i % 10, i: 1 });
     await flush(a.c);
     expect(a.c.ws.readyState).toBe(WebSocket.OPEN);
-    // Past that moment they are ordinary messages again.
+    // A slow page keeps sending for seconds; past the window they are ordinary messages again.
+    await advance(6_000);
+    for (let i = 0; i < 25; i++) a.c.send({ t: 'input', enc: start.enc, f: i % 10, i: 1 });
+    await flush(a.c);
+    expect(a.c.ws.readyState).toBe(WebSocket.OPEN);
     await advance(10_000);
     for (let i = 0; i < 25; i++) a.c.send({ t: 'input', enc: start.enc, f: i % 10, i: 1 });
     expect(await a.c.closed).toBe(CLOSE_RATE_LIMITED);

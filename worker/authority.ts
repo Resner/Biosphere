@@ -290,13 +290,14 @@ export class Authority extends DurableObject<Env> implements Hub {
       session.referee = 0;
     }
     const signal = msg?.t === 'signal';
-    // Only a fighter's inputs count in their own window, and those a moment after its fight ended
-    // (the inputs in flight when `enc-end` was sent); anyone else's count as any message.
+    // Only a fighter's inputs count in their own window, and those for one window after its fight
+    // ended (the inputs in flight when `enc-end` was sent: a page that is slow to hear of it, as a
+    // loaded machine is by seconds, keeps sending its 10 a second); anyone else's count as any message.
     const input =
       msg?.t === 'input' &&
       session.phase === 'active' &&
       (this.fights.playerLocked(session.playerId) ||
-        this.fights.fightEnded(session.playerId) !== null);
+        this.fights.fightEnded(session.playerId, RATE_WINDOW_MS) !== null);
     // Batches and disputes count in their own window only from a referee or a fighter; anyone
     // else's count as any message, so a stranger's flood still closes its socket.
     const referee =
