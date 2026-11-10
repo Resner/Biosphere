@@ -33,6 +33,7 @@ import {
   type SignedSnap,
   type Snapshot,
 } from '../src/net/protocol';
+import { ENC_MAX_FRAME } from '../src/net/protocol-defs';
 import { FRAME_MS } from '../src/net/referee';
 import { WhereReporter } from '../src/net/where';
 import { encodeFrameInput } from '../src/sim/encounter/codec';
@@ -944,8 +945,11 @@ export class LifeClient {
     // A page samples its input at each frame's time. A client whose loop was starved for seconds
     // (200 of them share one thread) doesn't send the frames it missed: the referee has finalized
     // them, and a burst of them after the fight ended would pass the hub's rate window.
-    fight.sentTo = Math.max(fight.sentTo, due - STALE_FRAMES);
-    for (let f = Math.max(0, fight.sentTo + 1); f <= due && f < fight.sentTo + 4; f++) {
+    fight.sentTo = Math.max(fight.sentTo, Math.min(due, ENC_MAX_FRAME) - STALE_FRAMES);
+    // No input names a frame past the protocol's last (`ENC_MAX_FRAME`, 100 s of fight): the hub
+    // cannot parse it and counts it as an ordinary message, 10 a second until the fight ends.
+    const last = Math.min(due, ENC_MAX_FRAME);
+    for (let f = Math.max(0, fight.sentTo + 1); f <= last && f < fight.sentTo + 4; f++) {
       const i = encodeFrameInput({
         steer: Math.floor(this.rng.next() * 256),
         throttle: 15,

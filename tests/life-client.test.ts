@@ -12,6 +12,7 @@ import {
   type SignedSnap,
   type Snapshot,
 } from '../src/net/protocol';
+import { ENC_MAX_FRAME } from '../src/net/protocol-defs';
 import { FRAME_MS } from '../src/net/referee';
 import { seedFromString } from '../src/sim/prng';
 import { RULES, TICK_HZ } from '../src/sim/rules';
@@ -322,6 +323,22 @@ describe('the life client', () => {
     expect(sent.length).toBeLessThanOrEqual(8);
     const frames = sent.map((m) => (m as Extract<ClientMsg, { t: 'input' }>).f);
     expect(Math.min(...frames)).toBeGreaterThan(Math.floor(20_000 / FRAME_MS) - 8);
+  });
+
+  it('sends no input past the last frame the protocol names', () => {
+    const { client } = make({ scripted: true });
+    const sent: ClientMsg[] = [];
+    const inner = client as unknown as {
+      fight: { enc: string; at: number; sentTo: number };
+      hub: { send(m: ClientMsg): void };
+      fightInputs(t: number): void;
+    };
+    inner.hub = { send: (m) => sent.push(m) };
+    inner.fight = { enc: 'e'.repeat(64), at: 0, sentTo: ENC_MAX_FRAME - 2 };
+    for (let i = 0; i < 5; i++) inner.fightInputs(200_000 + i * 100);
+    const frames = sent.map((m) => (m as Extract<ClientMsg, { t: 'input' }>).f);
+    expect(frames.length).toBeGreaterThan(0);
+    expect(Math.max(...frames)).toBe(ENC_MAX_FRAME);
   });
 
   it('answers a lock-ask with its own fresh snapshot', async () => {
