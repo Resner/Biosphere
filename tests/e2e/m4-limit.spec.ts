@@ -28,8 +28,9 @@ test('after three quick deaths the fourth hatch waits, and the practice cell pla
     await page.waitForFunction(() => window.__bs?.state().screen === 'dead', undefined, {
       timeout: 20_000,
     });
-    // A drifting plume can get to a starving cell first; this test is about the hatch bucket, not the cause.
-    expect(['starved', 'toxin']).toContain((await state(page)).death?.cause);
+    // Any hazard of the water can get to a starving cell first (a plume, UV, pressure); this test is about the
+    // hatch bucket, not which one. Fights and old age cannot happen here.
+    expect(['starved', 'toxin', 'uv', 'pressure']).toContain((await state(page)).death?.cause);
     if (life < 3) {
       await page.getByTestId('hatch-again').click();
       await waitPlaying(page);
