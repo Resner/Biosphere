@@ -189,7 +189,7 @@ async function witnessView(t: Trio, event: string) {
  * A witness (C, or D when the trio has one) referees fight `id` and has finalized `frames` frames, A and B heard the handover, and C's
  * chip shows. Returns C's first frame, or null when the fight ended first, wore a fighter down
  * before C took it (A and B hit each other until one dies, and a dead B cannot be fought again),
- * or got no witness commitment.
+ * got no witness commitment, or was declined (the offered page's links did not open in time).
  */
 export async function refereed(t: Trio, id: string, frames = 20): Promise<number | null> {
   const { a, b, c } = t;
@@ -208,13 +208,19 @@ export async function refereed(t: Trio, id: string, frames = 20): Promise<number
   const status = async () => {
     if (await over()) return 'over';
     let holder: { id: string; s: Awaited<ReturnType<typeof state>> } | null = null;
+    let declined = false;
     for (const w of witnesses(t)) {
       const s = await state(w.page);
       if (s.witness.duty?.enc === id) holder = { id: w.id, s };
+      // A duty whose links did not open in time ends while still linking: the page declined it.
+      else if (s.witness.last?.enc === id && s.witness.last.phase === 'linking') declined = true;
     }
     // A witness that holds the duty keeps the fight: a slow runner links late, and a fight worn
     // down meanwhile still counts once the witness has finalized its frames.
     if (!holder && (await worn())) return 'worn';
+    // A witness that could not link to the fighters in time declined, and the authority keeps the
+    // fight (E2E main: C's duty links never opened on a loaded runner): this try is lost, not hung.
+    if (!holder && declined) return 'declined';
     const duty = holder?.s.witness.duty;
     if (!holder || duty?.enc !== id) return (await unwitnessed()) ? 'unwitnessed' : 'wait';
     if (duty.phase !== 'refereeing' || duty.frames < frames) return 'wait';
@@ -238,7 +244,7 @@ export async function refereed(t: Trio, id: string, frames = 20): Promise<number
         timeout: 60_000,
       },
     )
-    .toMatch(/^(over|worn|unwitnessed|refereed)$/)
+    .toMatch(/^(over|worn|unwitnessed|declined|refereed)$/)
     .catch(async (error) => {
       throw new Error(
         `C never refereed: ${JSON.stringify({ a: await witnessSeen(a), b: await witnessSeen(b), c: await witnessSeen(c), seen: await seen(a) })}`,
