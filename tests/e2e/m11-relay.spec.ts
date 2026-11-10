@@ -46,6 +46,8 @@ test('two players learn of each other by gossip and link through a peer’s rela
     const relayedC = (await signals(c)).relayed;
     const hubA = (await signals(a)).hub;
     const hubC = (await signals(c)).hub;
+    const fallbackA = (await signals(a)).fallback;
+    const fallbackC = (await signals(c)).fallback;
 
     // A swims toward C, in steps a starter could swim, until C is within its reach.
     for (let x = -5000; x <= -1500; x += 100) {
@@ -65,14 +67,18 @@ test('two players learn of each other by gossip and link through a peer’s rela
     expect((await signals(a)).relayed, 'A’s signals went through a peer').toBeGreaterThan(relayedA);
     expect((await signals(c)).relayed, 'C’s signals went through a peer').toBeGreaterThan(relayedC);
     expect((await signals(b)).forwarded, 'B passed them on').toBeGreaterThan(0);
-    // Neither page sent a signal through the hub, and the hub relayed nothing more for the pair (its
-    // count lives in memory, so a hibernating hub may have dropped the spawn's).
-    expect((await signals(a)).hub, 'A sent nothing through the hub').toBe(hubA);
-    expect((await signals(c)).hub, 'C sent nothing through the hub').toBe(hubC);
+    // Neither page sent a signal through the hub but an offer's one resend (ADR 0062: an offer a
+    // peer carried and nobody answered in 4 s goes once more through the hub, which a slow runner's
+    // ICE gathering can outlast), and the hub relayed nothing more for the pair (its count lives in
+    // memory, so a hibernating hub may have dropped the spawn's).
+    const sa = await signals(a);
+    const sc = await signals(c);
+    expect(sa.hub - hubA, 'A sent only resends through the hub').toBe(sa.fallback - fallbackA);
+    expect(sc.hub - hubC, 'C sent only resends through the hub').toBe(sc.fallback - fallbackC);
     expect(
       relaysOf(await directory(request, HUB), a.id, c.id),
-      'the hub relayed nothing more for A and C',
-    ).toBeLessThanOrEqual(hubBefore);
+      'the hub relayed nothing more for A and C but those resends',
+    ).toBeLessThanOrEqual(hubBefore + (sa.fallback - fallbackA) + (sc.fallback - fallbackC));
     // Both still in the world where the test put them.
     const at = (await a.page.evaluate(() => (window.__bs as BsHook).state().player)) ?? null;
     expect(Math.abs((at?.x ?? 0) - (CENTRE - 1500))).toBeLessThan(200);

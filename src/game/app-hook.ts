@@ -30,7 +30,7 @@ const NO_NET: NetLinks = {
   known: { snapshot: 0, gossip: 0, directory: 0, signal: 0 },
   crowded: false,
   where: { sent: 0, leaf: null },
-  signals: { hub: 0, relayed: 0, forwarded: 0, forged: 0 },
+  signals: { hub: 0, relayed: 0, forwarded: 0, forged: 0, fallback: 0 },
   helloFailed: 0,
   instance: { n: 0, changes: 0, crowded: false, crowdSent: 0 },
 };

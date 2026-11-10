@@ -13,13 +13,15 @@ type Ids = { idA: string; idB: string };
  * A parks beside B and presses F until a fight other than `previous` starts on A's page (parking
  * again whenever B has drifted off). Returns its id. A fight that is already over by the time the
  * page is read (B's autopilot can escape within a second) counts only with `allowOver`, for a
- * caller that checks the fight is still running and tries again if not.
+ * caller that checks the fight is still running and tries again if not. `target` is B's page, shown
+ * in the failure's message beside A's.
  */
 export async function engage(
   a: Page,
   ids: Ids,
   previous?: string,
   allowOver = false,
+  target?: Page,
 ): Promise<string> {
   await expect(async () => {
     await parkBeside(a, ids.idB);
@@ -42,9 +44,9 @@ export async function engage(
   }, 'A engages B')
     .toPass({ timeout: 40_000 })
     .catch(async (error) => {
-      throw new Error(`A's fight never started: ${JSON.stringify(await seen(a))}`, {
-        cause: error,
-      });
+      // B's view too (a refusal `engage:unseen` is about the frames B's page held of A).
+      const view = target ? { a: await seen(a), b: await seen(target) } : await seen(a);
+      throw new Error(`A's fight never started: ${JSON.stringify(view)}`, { cause: error });
     });
   return (await state(a)).encounter?.id as string;
 }
