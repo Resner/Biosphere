@@ -59,6 +59,8 @@ export interface Measured {
   session: { rowsWritten: number; rowsRead: number };
   /** Rows a fight writes and reads (the log's batches, its records, its commitment and attestation). */
   fightRows: { written: number; read: number };
+  /** Rows written by a mating (its commitment, both mate-commits, the round's write and both children) and by a promotion (`worker/lifecycle-rows.test.ts` holds them to the hub). */
+  lifecycle: { mating: number; promote: number };
   /** The local runtime's CPU per incoming message, ms, before the production factor (T7). */
   cpuMsPerMessage: number;
   /** What a client receives, KB/s (T5). */
@@ -72,6 +74,8 @@ export interface Measured {
 export interface Assumptions {
   /** Fights each player is in per hour (ADR 0056). */
   fightsPerHour: number;
+  /** Matings each player is in per hour: DESIGN §6's creature mates 3.1 times an hour at its 9-minute cooldown, and half of those chances find no partner. Each is followed by one promotion. */
+  matingsPerHour: number;
   /** The share of fights a witness referees. */
   witnessShare: number;
   /** The share of a client's traffic that runs over a TURN relay. */
@@ -90,6 +94,7 @@ export interface Assumptions {
 
 export const ASSUMPTIONS: Assumptions = {
   fightsPerHour: 3,
+  matingsPerHour: 1.5,
   witnessShare: 0.5,
   relayShare: 0.15,
   sessionMinutes: 30,
@@ -145,6 +150,10 @@ export interface Rates {
   fightsPerHour: number;
 }
 
+/** Rows a player's hour of mating and promoting writes: a mating has two players, so each carries half. A player's one hatch is in no hour (`docs/CAPACITY.md`). */
+export const lifecycleRows = (m: Measured, a: Assumptions): number =>
+  (a.matingsPerHour / 2) * m.lifecycle.mating + a.matingsPerHour * m.lifecycle.promote;
+
 export function ratesOf(
   m: Measured,
   a: Assumptions = ASSUMPTIONS,
@@ -163,7 +172,8 @@ export function ratesOf(
     rowsWrittenPerHour:
       sessionsPerHour * m.session.rowsWritten +
       60 / a.checkpointMinutes +
-      sides * m.fightRows.written,
+      sides * m.fightRows.written +
+      lifecycleRows(m, a),
     rowsReadPerHour: sessionsPerHour * m.session.rowsRead + sides * m.fightRows.read,
     workerRequestsPerHour: sessionsPerHour * (1 + a.readsPerSession),
     turnGbPerHour: turnGb(1, m.clientKBps * a.relayShare, 1 / 24),

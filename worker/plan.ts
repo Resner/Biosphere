@@ -66,6 +66,7 @@ export const MEASURED: Measured = {
   fight: { frames: 300, alone: 600, witnessed: 100 },
   session: { rowsWritten: 3.004, rowsRead: 32.82 },
   fightRows: { written: 37, read: 37 },
+  lifecycle: { mating: 20, promote: 5 },
   cpuMsPerMessage: 0.9861,
   clientKBps: 4.4,
   memoryBytesPerSession: 861,

@@ -17,6 +17,7 @@ import {
   GUARD_SHARE,
   HEADROOM_H,
   headroomOf,
+  lifecycleRows,
   logWindowDays,
   MEMORY_MAX_BYTES,
   MESSAGES_PER_SECOND_MAX,
@@ -140,6 +141,12 @@ export function capacityReport(
     table([
       ['Assumption', 'Value', 'Source', 'Measured live by'],
       [
+        'Matings per player-hour',
+        String(a.matingsPerHour),
+        'DESIGN §6: 3.1 an hour at a 9-minute cooldown, half of them lost to finding no partner (a guess; the playtest replaces it)',
+        '`today.rowsWritten`',
+      ],
+      [
         'Fights per player-hour',
         String(a.fightsPerHour),
         'ADR 0056',
@@ -194,12 +201,16 @@ export function capacityReport(
       ],
       [
         'Rows written an hour',
-        `${n1(r.rowsWrittenPerHour)} (${n1(r.sessionsPerHour * m.session.rowsWritten)} closing sessions, ${n1(60 / a.checkpointMinutes)} checkpoints, ${n1((a.fightsPerHour / 2) * m.fightRows.written)} in fights)`,
+        `${n1(r.rowsWrittenPerHour)} (${n1(r.sessionsPerHour * m.session.rowsWritten)} closing sessions, ${n1(60 / a.checkpointMinutes)} checkpoints, ${n1((a.fightsPerHour / 2) * m.fightRows.written)} in fights, ${n1(lifecycleRows(m, a))} in matings and promotions)`,
       ],
       ['Rows read an hour', n1(r.rowsReadPerHour)],
       [
         'Rows per fight, written / read',
         `${m.fightRows.written} / ${m.fightRows.read} (a row and a seal, two records, a prune, a commitment, an attestation, and a row per ${BATCH_FRAMES} frames' batch)`,
+      ],
+      [
+        'Rows per mating and promotion',
+        `${m.lifecycle.mating} and ${m.lifecycle.promote} (${a.matingsPerHour} of each a player-hour; a mating's rows are shared by its two players)`,
       ],
       ['Kept for good, an hour', bytes(r.permanentBytesPerHour)],
       ['Kept for the log window, an hour', bytes(r.loggedBytesPerHour)],
@@ -389,7 +400,7 @@ function crowdRows(
     const seats = Math.min(cap, headroomOf(day, r));
     const name = plan === 'free' ? 'Free' : 'Paid';
     return CROWDS.map((players) => {
-      if (players > seats) return [name, n0(players), n0(seats), `past the cap of ${n0(cap)}`, '—'];
+      if (players > seats) return [name, n0(players), n0(seats), `past ${n0(seats)} seats`, '—'];
       const h = crowdHours(day, r, players);
       return [name, n0(players), n0(seats), hours(h.headroom), hours(h.budget)];
     });

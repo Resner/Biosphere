@@ -186,7 +186,7 @@ describe('counting rows', () => {
         },
         databaseSize: raw.databaseSize,
       } as unknown as SqlStorage;
-      const counter: RowCounter = { written: 0, read: 0 };
+      const counter: RowCounter = { written: 0, read: 0, tables: {} };
       const sql = meteredSql(spy, counter);
       sql.exec('CREATE TABLE IF NOT EXISTS probe (k INTEGER PRIMARY KEY, v TEXT)');
       sql.exec('DELETE FROM probe');
@@ -204,6 +204,9 @@ describe('counting rows', () => {
       expect(counter.read).toBe(cursors.reduce((n, c) => n + c.rowsRead, 0));
       expect(counter.written).toBeGreaterThan(20);
       expect(counter.read).toBeGreaterThan(20);
+      // Every written row is named by the table its statement wrote (the DDL has none).
+      expect(Object.values(counter.tables ?? {}).reduce((n, v) => n + v, 0)).toBe(counter.written);
+      expect(counter.tables?.probe).toBeGreaterThanOrEqual(25);
     });
   });
 

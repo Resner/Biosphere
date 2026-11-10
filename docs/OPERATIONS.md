@@ -26,7 +26,7 @@ The limits and costs are in `docs/CAPACITY.md`: on the free plan the day's allow
 
 ## Plans
 
-- **Free** (the default): $0, the allowances above, a session cap of 621, and a headroom rule: a newcomer is seated only while everyone seated could play two more hours within what is left of the day. On a fresh day 200 players can play for about five hours before that rule closes the door, and about seven before the budget guard does (`docs/CAPACITY.md`, "Crowds from a fresh day"). The free plan stops at its daily limits instead of billing: it cannot cost money.
+- **Free** (the default): $0, the allowances above, a session cap of 621, and a headroom rule: a newcomer is seated only while everyone seated could play two more hours within what is left of the day. On a fresh day 200 players can play for about three and a half hours before that rule closes the door, and about five before the budget guard does (`docs/CAPACITY.md`, "Crowds from a fresh day"). The free plan stops at its daily limits instead of billing: it cannot cost money.
 - **Paid** ($5 a month and usage): far larger daily allowances (9 times the requests), a session cap of 590 and a ceiling of $9.50 a month by its own allowances.
 - **Switching**: set the GitHub variable `CLOUDFLARE_PLAN` to `paid` (after upgrading the account), then re-run **Release**. To go back, delete the variable or set it to `free` first, redeploy, then downgrade the account. `docs/SETUP.md` has the clicks. `/v1/metrics` shows the plan in force.
 - **What each changes in admission**: the plan's limits and caps (the `limits` of `/v1/metrics`), the headroom (paid rarely binds) and what happens at the free plan's hard limit (below). Nothing else.
@@ -173,7 +173,7 @@ Four secrets and two variables, all under GitHub → Settings → Secrets and va
 
 ### The week before
 
-- [ ] Decide the plan. The free plan serves 200 players for about five hours of a fresh day; the paid plan removes the worry. Switch before the day (see "Plans").
+- [ ] Decide the plan. The free plan serves 200 players for about three and a half hours of a fresh day; the paid plan removes the worry. Switch before the day (see "Plans").
 - [ ] Pick a start hour with as much of the UTC day left as possible (the headroom counts the allowances left today), and tell players the time in UTC.
 - [ ] Re-run **Release** on `main` on the day before so that the Worker and Pages are the latest build, and open the page once to see `"version"` in `/v1/health` match.
 - [ ] Check the Playtest issue for the version: the link, what to check, and when.

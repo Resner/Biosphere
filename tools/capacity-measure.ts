@@ -31,6 +31,13 @@ export const sig4 = (n: number): number => (n === 0 ? 0 : Number(n.toPrecision(4
 /** Rows a fight writes: its row, final seal, two records, a prune, a witness commitment and an attestation, and one row per batch. */
 export const FIGHT_FIXED_ROWS = 7;
 
+/**
+ * Rows a genesis hatch, a mating and a promotion write (M14 T14d): the soak's rows per player-hour
+ * found matings and promotions missing from the model, and the soak prices its hatches with the
+ * first. `worker/lifecycle-rows.test.ts` holds each number to the hub.
+ */
+export const LIFECYCLE_ROWS = { hatch: 12, mating: 20, promote: 5 } as const;
+
 export function measuredFrom(inputs: CapacityInputs): Measured {
   const i = { ...inputs, storage: snapped(inputs.storage) };
   const figures = figuresOf(i.hubLoad);
@@ -62,6 +69,7 @@ export function measuredFrom(inputs: CapacityInputs): Measured {
       rowsRead: sig4((i.hubLoad.end.rowsRead - i.hubLoad.start.rowsRead) / entered),
     },
     fightRows: { written: fightRows, read: fightRows },
+    lifecycle: { mating: LIFECYCLE_ROWS.mating, promote: LIFECYCLE_ROWS.promote },
     cpuMsPerMessage: sig4(figures.cpuMsPerMessage ?? 0),
     clientKBps: sig4(i.load.downloadKBps.mean),
     memoryBytesPerSession: Math.ceil(
@@ -88,6 +96,7 @@ export function measuredSource(m: Measured): string {
     `  fight: ${obj({ ...m.fight })},`,
     `  session: ${obj({ ...m.session })},`,
     `  fightRows: ${obj({ ...m.fightRows })},`,
+    `  lifecycle: ${obj({ ...m.lifecycle })},`,
     `  cpuMsPerMessage: ${m.cpuMsPerMessage},`,
     `  clientKBps: ${m.clientKBps},`,
     `  memoryBytesPerSession: ${m.memoryBytesPerSession},`,

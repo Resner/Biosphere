@@ -302,6 +302,19 @@ export function reportOf(run: Soak): string {
       row([k, run.totals[k] ?? 0]),
     ),
   ];
+  if (run.rows) {
+    const total = Object.values(run.rows).reduce((n, v) => n + v, 0);
+    lines.push(
+      '',
+      '## Rows written, by table',
+      '',
+      row(['Table', 'Rows', 'Share']),
+      row(['---', '---', '---']),
+      ...Object.entries(run.rows)
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .map(([table, n]) => row([table, n, `${fixed((100 * n) / total, 1)}%`])),
+    );
+  }
   if (full) {
     lines.push(
       '',

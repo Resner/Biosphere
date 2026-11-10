@@ -186,4 +186,14 @@ describe('the report', () => {
     expect(reportOf(bad)).toContain('Result: FAIL');
     expect(reportOf(healthy())).toBe(reportOf(healthy()));
   });
+
+  it('says which tables the rows written went to, the largest first', () => {
+    const run = healthy();
+    run.rows = { checkpoints: 10, encounters: 30, other: 10 };
+    const text = reportOf(run);
+    expect(text).toContain('## Rows written, by table');
+    expect(text).toContain('| encounters | 30 | 60.0% |');
+    expect(text.indexOf('| encounters |')).toBeLessThan(text.indexOf('| checkpoints |'));
+    expect(reportOf(healthy())).not.toContain('Rows written, by table');
+  });
 });

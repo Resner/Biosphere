@@ -2,6 +2,8 @@
 // Worker under `wrangler dev` (port 8851) and checks what the hub holds at the end (M14 T13). Exits
 // 1 when a check fails or a mating, fight, kill, restore or drop never happened. Localhost only.
 //
+// `--model-mix` plays the capacity model's mix (30-minute sessions, about 3 fights an hour) without the pages.
+//
 // `npm run soak -- --full` is the one-hour soak (M14 T14): 200 clients joining over 5 minutes, two
 // Chromium pages among them (the built `dist/`, served on port 8852), a sample every minute, and
 // `docs/perf/soak.md` and `soak.json` written to `--out`. About 70 minutes.
@@ -56,6 +58,7 @@ try {
     minutes,
     port,
     ...(dropEveryMs ? { dropEveryMs } : {}),
+    ...(args.includes('--model-mix') ? { modelMix: true } : {}),
     ...(full ? { full: { site: `http://127.0.0.1:${sitePort}/`, pages, joinMinutes } } : {}),
     log: (line) => process.stderr.write(`${line}\n`),
   });
