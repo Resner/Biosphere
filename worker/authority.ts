@@ -320,7 +320,13 @@ export class Authority extends DurableObject<Env> implements Hub {
         ? (session.inputs ?? 0) > RATE_MAX_INPUTS
         : !referee && session.count > RATE_MAX_MESSAGES;
     if (over) {
-      drop(this, ws, CLOSE_RATE_LIMITED, 'rate limited');
+      // Which window ran over, for a soak's report to say what a rate close was.
+      drop(
+        this,
+        ws,
+        CLOSE_RATE_LIMITED,
+        `rate limited: ${signal ? 'signals' : input ? 'inputs' : 'messages'}`,
+      );
       return;
     }
     keep(this, ws, session);

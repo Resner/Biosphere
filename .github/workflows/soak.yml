@@ -7,6 +7,10 @@ name: Soak
 # the milestone close needs the latest run on main's head to be green (`milestone` skill, step 1).
 on:
   workflow_dispatch:
+    inputs:
+      minutes:
+        description: 'Minutes to play (the full hour is 60; a shorter run is for finding what a failure was)'
+        default: '60'
   schedule:
     - cron: '0 3 * * 0'
 
@@ -37,7 +41,7 @@ jobs:
           sudo mkswap /mnt/soak.swap
           sudo swapon /mnt/soak.swap
       - name: Play for an hour
-        run: npm run soak -- --full --out soak-report
+        run: npm run soak -- --full --minutes ${{ inputs.minutes || 60 }} --out soak-report
       - name: Keep the report
         if: always()
         uses: actions/upload-artifact@v7

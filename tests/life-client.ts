@@ -423,7 +423,9 @@ export class LifeClient {
     raw.onclose = (ev) => {
       if (!this.stopped && this.hub !== null) bump(this.stats.closes, String(ev.code));
       if (!this.stopped && this.hub !== null && ev.code === 4003)
-        this.errors.push(this.lastWindow());
+        this.errors.push(
+          `${this.lastWindow()} (${(ev as { reason?: string }).reason ?? 'no reason'})`,
+        );
       s.onclose?.(ev);
     };
     return s;
