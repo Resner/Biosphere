@@ -310,12 +310,12 @@ describe('the life client', () => {
     const { client } = make({ scripted: true });
     const sent: ClientMsg[] = [];
     const inner = client as unknown as {
-      fight: { enc: string; at: number; sentTo: number };
+      fight: { enc: string; at: number; sentTo: number; heard: number };
       hub: { send(m: ClientMsg): void };
       fightInputs(t: number): void;
     };
     inner.hub = { send: (m) => sent.push(m) };
-    inner.fight = { enc: 'e'.repeat(64), at: 0, sentTo: 3 };
+    inner.fight = { enc: 'e'.repeat(64), at: 0, sentTo: 3, heard: 10_000 };
     // 20 s later (about 200 frames behind): only the frames near the clock go out.
     inner.fightInputs(20_000);
     inner.fightInputs(20_000);
@@ -325,16 +325,43 @@ describe('the life client', () => {
     expect(Math.min(...frames)).toBeGreaterThan(Math.floor(20_000 / FRAME_MS) - 8);
   });
 
+  it('sends no input far ahead of the last frame it heard', () => {
+    const { client } = make({ scripted: true });
+    const sent: ClientMsg[] = [];
+    const inner = client as unknown as {
+      fight: { enc: string; at: number; sentTo: number; heard: number };
+      hub: { send(m: ClientMsg): void };
+      fightInputs(t: number): void;
+      identity: { playerId: string };
+      onFight(m: { t: 'enc-frame'; enc: string; f: number; i: (number | null)[] }): void;
+    };
+    inner.hub = { send: (m) => sent.push(m) };
+    inner.identity = { playerId: 'p' };
+    const enc = 'e'.repeat(64);
+    inner.fight = { enc, at: 0, sentTo: -1, heard: -1 };
+    // A minute on the clock, nothing heard: the stream is behind, so the inputs wait for it.
+    for (let i = 0; i < 20; i++) inner.fightInputs(60_000 + i * 100);
+    const frames = () => sent.map((m) => (m as Extract<ClientMsg, { t: 'input' }>).f);
+    expect(Math.max(...frames())).toBeLessThanOrEqual(12);
+    // Frames heard from another fight don't count; its own do.
+    inner.onFight({ t: 'enc-frame', enc: 'd'.repeat(64), f: 500, i: [] });
+    for (let i = 0; i < 20; i++) inner.fightInputs(60_000 + i * 100);
+    expect(Math.max(...frames())).toBeLessThanOrEqual(12);
+    inner.onFight({ t: 'enc-frame', enc, f: 40, i: [] });
+    for (let i = 0; i < 20; i++) inner.fightInputs(60_000 + i * 100);
+    expect(Math.max(...frames())).toBe(52);
+  });
+
   it('sends no input past the last frame the protocol names', () => {
     const { client } = make({ scripted: true });
     const sent: ClientMsg[] = [];
     const inner = client as unknown as {
-      fight: { enc: string; at: number; sentTo: number };
+      fight: { enc: string; at: number; sentTo: number; heard: number };
       hub: { send(m: ClientMsg): void };
       fightInputs(t: number): void;
     };
     inner.hub = { send: (m) => sent.push(m) };
-    inner.fight = { enc: 'e'.repeat(64), at: 0, sentTo: ENC_MAX_FRAME - 2 };
+    inner.fight = { enc: 'e'.repeat(64), at: 0, sentTo: ENC_MAX_FRAME - 2, heard: 10_000 };
     for (let i = 0; i < 5; i++) inner.fightInputs(200_000 + i * 100);
     const frames = sent.map((m) => (m as Extract<ClientMsg, { t: 'input' }>).f);
     expect(frames.length).toBeGreaterThan(0);
