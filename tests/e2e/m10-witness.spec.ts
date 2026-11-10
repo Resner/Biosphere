@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import type { BsHook } from '../../src/game/debug';
 import { M10_WITNESS_HUB, state } from './helpers';
 import {
   available,
@@ -31,6 +32,12 @@ test('a witness beside the fight referees a fight from the handover to its end @
     t = await trio(browser, M10_WITNESS_HUB);
     const { a, b, c, idC } = t;
     expect((await state(c)).world?.id).toBe((await state(a)).world?.id);
+    // The fighters' input lead follows measured round trips, which swing with a runner's load; a
+    // handover between the hub's and C's would shift the lead by their difference and roll back
+    // more than the handover itself does. Pinned, only late frames roll back.
+    for (const page of [a, b]) {
+      await page.evaluate(() => (window.__bs as BsHook).debug?.oneWayMs(60));
+    }
     await available(c);
     const { id, from } = await witnessedFight(t);
 

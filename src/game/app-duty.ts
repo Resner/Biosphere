@@ -182,6 +182,8 @@ export class DutyWiring {
   audits: AuditDuties | null = null;
   /** `debug.dutyFrameMs`: the frame time availability judges in place of the measured one, or null. */
   frameMs: number | null = null;
+  /** `debug.oneWayMs`: the one-way latency a fight's input lead uses to every referee, or null (measured). */
+  oneWayPin: number | null = null;
   private auditLoading: Promise<{ audits: AuditDuties; runner: AuditRunner }> | null = null;
   private readonly host: WitnessHost;
 

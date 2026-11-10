@@ -608,7 +608,7 @@ export function appFightHost(app: App): FightHost {
     steering: () => app.input,
     send: (msg) => app.keeper.current?.send(msg),
     hubNow: () => clock()?.hubNow(performance.now()) ?? performance.now(),
-    oneWayMs: () => (clock()?.rtt ?? 0) / 2,
+    oneWayMs: () => app.duty.oneWayPin ?? (clock()?.rtt ?? 0) / 2,
     hidden: () => document.hidden,
     // The own genome is built already; a peer's is built once for the fight.
     body: (text) =>
@@ -620,7 +620,7 @@ export function appFightHost(app: App): FightHost {
       witness && app.identity ? witness.signInput(app.identity, enc, f, code) : '',
     frameSigned: (by, enc, f, inputs, sig) =>
       witness?.witnessFrameSigned(by, enc, f, inputs, sig) ?? false,
-    peerOneWayMs: (peer) => app.duty.probes.oneWayMs(peer),
+    peerOneWayMs: (peer) => app.duty.oneWayPin ?? app.duty.probes.oneWayMs(peer),
     prepare: () => {
       if (!witness) {
         void import('../ledger/witness').then(
