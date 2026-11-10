@@ -487,7 +487,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
   - Acceptance: `rows written per player-hour` and `messages per player-minute` hold at the committed mix, with the mix named in `docs/TESTING.md`.
   - Done (ADR 0079): the meter counts rows by table (`/v1/e2e/rows`, the report's table); a hatch, a mating and a promotion write 12, 20 and 5 rows (`worker/lifecycle-rows.test.ts`), so the model gains `matingsPerHour` 1.5 (88.0 rows a player-hour, the free plan 47 players around the clock, a crowd of 200 3.7 hours of a fresh day); the soak plays `FULL_MIX` and checks rows and messages against the model at the mix its clients counted. A 15-minute 200-client run: 242 rows against the model's 299 for 5.6 sessions, 6.1 fights, 8.5 matings and 4.5 hatches a player-hour (the hour's slow hub reads still time out at the end of a one-machine `--full` run: T14e).
 
-- [ ] T14e The one-hour soak passes (after T14b, T14c, T14d)
+- [ ] T14e The one-hour soak passes (after T14b, T14c, T14d) (in progress)
   - Steps: dispatch `soak.yml` on the branch (or run `npm run soak -- --full` on a cloud session) and commit the report and JSON. Fix what it finds, each at its cause; the hub reads that timed out (`/v1/e2e/metrics` at 30 s) are a finding if they repeat on a runner: say what the hub was doing.
   - Acceptance: a full run passes and its `docs/perf/soak.md` and `soak.json` are committed; the soak's exit criterion below is ticked with that evidence.
 
