@@ -250,6 +250,9 @@ export class LifeClient {
   private readonly reporter = new WhereReporter();
   /** What the socket sent in the last 10 s (the hub's rate window), to say what a rate close was made of. */
   private readonly recent: { at: number; type: string }[] = [];
+  /** The last messages heard (type and second into the socket), for the same line. */
+  private readonly heard: string[] = [];
+  private openedAt = 0;
   private peers: NearPeer[] = [];
   private leafValue: Extract<WorldMsg, { t: 'leaf' }>['leaf'] | null = null;
   private pending: Born | null = null;
@@ -416,10 +419,19 @@ export class LifeClient {
       },
       close: () => raw.close(),
     };
-    raw.onopen = () => s.onopen?.();
+    raw.onopen = () => {
+      this.openedAt = this.now();
+      this.heard.length = 0;
+      s.onopen?.();
+    };
     raw.onerror = () => s.onerror?.();
     raw.onmessage = (ev) => {
-      bump(this.stats.received, typeOf(ev.data));
+      const type = typeOf(ev.data);
+      bump(this.stats.received, type);
+      if (type !== 'pong' && type !== 'near') {
+        this.heard.push(`${type}@${Math.round((this.now() - this.openedAt) / 1000)}`);
+        if (this.heard.length > 8) this.heard.shift();
+      }
       s.onmessage?.(ev);
     };
     raw.onclose = (ev) => {
@@ -445,10 +457,15 @@ export class LifeClient {
     const from = this.now() - 10_000;
     const counts: Record<string, number> = {};
     for (const m of this.recent) if (m.at >= from) bump(counts, m.type);
+    const fight = this.fight
+      ? `fight since ${Math.round((this.now() - this.fight.at) / 1000)} s`
+      : 'no fight';
     return `rate close after ${Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
       .map(([k, n]) => `${k} ${n}`)
-      .join(', ')}`;
+      .join(
+        ', ',
+      )}; ${fight}, now ${Math.round((this.now() - this.openedAt) / 1000)} s into the socket, last heard ${this.heard.join(' ')}`;
   }
 
   // ---- messages ----
