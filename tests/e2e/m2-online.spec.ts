@@ -20,16 +20,18 @@ async function player(browser: Browser, query = `?debug=1&hub=${HUB}`): Promise<
 test('three players share the world, see each other and keep it after dying @slow', async ({
   browser,
 }) => {
-  // Three software-GL browsers take about 25 s when other specs share the CPU; the social and pond projects get 60 s too.
-  test.setTimeout(60_000);
+  // Three software-GL browsers take about 25 s when other specs share the CPU; the links between them
+  // then form while the later hatches still draw, so the ceiling leaves room for that.
+  test.setTimeout(120_000);
   const pages = await Promise.all([player(browser), player(browser), player(browser)]);
   try {
     await Promise.all(pages.map((p) => p.waitForFunction(() => window.__bs?.state().playerId)));
     // Hatch one after the other: a hatch waits for its hub welcome, and each takes the next spawn slot.
     for (const page of pages) await hatch(page);
     for (const page of pages) {
+      // The third hatch can finish seconds after the first two, and each link is a WebRTC negotiation.
       await page.waitForFunction(() => window.__bs?.state().remotes.length === 2, undefined, {
-        timeout: 5000,
+        timeout: 30_000,
       });
     }
     const states = await Promise.all(pages.map(state));
@@ -59,7 +61,7 @@ test('three players share the world, see each other and keep it after dying @slo
     await b.waitForFunction(
       (id) => !window.__bs?.state().remotes.some((r) => r.id === id && r.alpha > 0),
       states[0]?.playerId ?? '',
-      { timeout: 5000 },
+      { timeout: 15_000 },
     );
     await a.getByRole('button', { name: 'Hatch again' }).click();
     await a.waitForFunction(() => window.__bs?.state().screen === 'playing');
