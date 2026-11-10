@@ -2,6 +2,8 @@
 // Worker under `wrangler dev` (port 8851) and checks what the hub holds at the end (M14 T13). Exits
 // 1 when a check fails or a mating, fight, kill, restore or drop never happened. Localhost only.
 //
+// `--model-mix` plays the capacity model's mix (30-minute sessions, about 3 fights an hour) without the pages.
+//
 // `npm run soak -- --full` is the one-hour soak (M14 T14): 200 clients joining over 5 minutes, two
 // Chromium pages among them (the built `dist/`, served on port 8852), a sample every minute, and
 // `docs/perf/soak.md` and `soak.json` written to `--out`. About 70 minutes.
@@ -41,7 +43,7 @@ let site = null;
 let failed = false;
 try {
   const { runSoak, problems, missing } = await server.ssrLoadModule('/tools/soak-run.ts');
-  const { failures, reportOf } = await server.ssrLoadModule('/tools/soak-report.ts');
+  const { failures, reportOf, mixLine } = await server.ssrLoadModule('/tools/soak-report.ts');
   if (full) {
     // The built game, on the loopback address as the E2E pages are.
     site = await preview({
@@ -56,10 +58,13 @@ try {
     minutes,
     port,
     ...(dropEveryMs ? { dropEveryMs } : {}),
+    ...(args.includes('--model-mix') ? { modelMix: true } : {}),
     ...(full ? { full: { site: `http://127.0.0.1:${sitePort}/`, pages, joinMinutes } } : {}),
     log: (line) => process.stderr.write(`${line}\n`),
   });
   process.stdout.write(`${JSON.stringify(run, null, 2)}\n`);
+  const mixed = mixLine(run);
+  if (mixed) process.stderr.write(`${mixed}\n`);
   const bad = [
     ...new Set([...problems(run), ...failures(run), ...missing(run).map((k) => `no ${k} happened`)]),
   ];

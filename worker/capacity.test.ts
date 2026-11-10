@@ -45,6 +45,7 @@ const ROUND: Measured = {
   fight: { frames: 300, alone: 600, witnessed: 100 },
   session: { rowsWritten: 3, rowsRead: 30 },
   fightRows: { written: 37, read: 37 },
+  lifecycle: { mating: 20, promote: 5 },
   cpuMsPerMessage: 1,
   clientKBps: 4,
   memoryBytesPerSession: 1000,
@@ -157,9 +158,10 @@ describe('the headroom (ADR 0075)', () => {
   const r = ratesOf(MEASURED, ASSUMPTIONS);
   const free = allowances('free');
 
-  it('is above the free cap on a fresh day, so the cap binds', () => {
+  it('seats well over a crowd of 500 on a fresh free day, and with matings priced it falls below the free cap', () => {
     expect(HEADROOM_H).toBe(2);
-    expect(headroomOf(free, r)).toBeGreaterThan(FREE.sessions);
+    expect(headroomOf(free, r)).toBeGreaterThan(500);
+    expect(headroomOf(free, r)).toBeLessThan(FREE.sessions);
   });
 
   it('with rows written at 60% of the allowance, is ⌊40,000 ÷ (rows written per player-hour × 2)⌋', () => {
@@ -178,7 +180,7 @@ describe('the headroom (ADR 0075)', () => {
     expect(headroomOf(allowances('paid'), r)).toBeGreaterThan(PAID.sessions);
   });
 
-  it.each([50, 200, 621])(
+  it.each([50, 200, 500])(
     'a crowd of %i from a fresh free day: the headroom falls below it and the budget guard holds when crowdHours says',
     (players) => {
       const h = crowdHours(free, r, players);
@@ -195,11 +197,11 @@ describe('the headroom (ADR 0075)', () => {
     },
   );
 
-  it('about 200 players play over five hours of a fresh free day before the headroom stops newcomers, and nearly seven before the budget guard', () => {
+  it('about 200 players play over three hours of a fresh free day before the headroom stops newcomers, and over five before the budget guard', () => {
     const h = crowdHours(free, r, 200);
-    expect(h.headroom).toBeGreaterThan(5);
+    expect(h.headroom).toBeGreaterThan(3);
     expect(h.budget).toBeGreaterThan(h.headroom);
-    expect(h.budget).toBeGreaterThan(6.5);
-    expect(h.budget).toBeLessThan(7);
+    expect(h.budget).toBeGreaterThan(5);
+    expect(h.budget).toBeLessThan(5.5);
   });
 });

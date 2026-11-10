@@ -18,7 +18,7 @@ Reproduce with `npm run soak -- --full` (about 70 minutes; `.github/workflows/so
 | authority heap level | **FAIL** | no heap samples |
 | authority CPU per message level | pass | 18.2593 ms against 17.5248 ms (1.04x, limit 1.5x) |
 | messages per player-minute | pass | 17.13 (MEASURED 19.57, limit 29.35) |
-| rows written per player-hour | **FAIL** | 187.96 (MEASURED 65.51, limit 98.26) |
+| rows written per player-hour | **FAIL** | 187.96 (MEASURED 88.01, limit 132.01) |
 | pages sampled | pass | 2 pages |
 | page 1 heap level | pass | 10.5 MB at minute 10, 9.6 MB at 54 (-9.3%) |
 | page 1 renderer resources do not grow | pass | geometries 11 → 9, textures 1 → 1, programs 9 → 7 |

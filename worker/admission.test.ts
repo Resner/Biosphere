@@ -511,13 +511,18 @@ describe('plans', () => {
     ['free', FREE.sessions, 621],
     ['paid', PAID.sessions, 590],
   ])(
-    'on a fresh day the %s plan seats its cap of %i: the headroom is above it',
+    'on a fresh day the %s plan has a cap of %i, and its headroom is above it only on the paid plan',
     async (plan, sessions, cap) => {
       await set({ PLAN: plan });
       expect(sessions).toBe(cap);
       const metrics = await inside((o) => o.metrics());
       expect(metrics.limits.sessions).toBe(cap);
-      expect(metrics.admission.headroom).toBeGreaterThan(cap);
+      if (plan === 'paid') expect(metrics.admission.headroom).toBeGreaterThan(cap);
+      // Matings priced (M14 T14d), the free day's rows written seat fewer than the cap, but a crowd of 200 and more.
+      else {
+        expect(metrics.admission.headroom).toBeGreaterThan(500);
+        expect(metrics.admission.headroom).toBeLessThan(cap);
+      }
     },
   );
 

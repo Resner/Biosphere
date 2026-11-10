@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { verifyLineage } from '../src/ledger/verify';
 import { LifeClient, type LifeStats, SnapBus } from '../tests/life-client';
+import { ASSUMPTIONS } from '../worker/capacity';
 import { RuntimeWatch } from './load-hub-run';
 import { ObjectHeap } from './object-heap';
 import { SoakPages } from './soak-pages';
@@ -20,6 +21,8 @@ export interface SoakOptions {
   port: number;
   /** Mean play time between a client's drops (ms); 0 never drops. */
   dropEveryMs?: number;
+  /** Play the capacity model's mix (`FULL_MIX`); the full soak always does. */
+  modelMix?: boolean;
   /** The full soak (M14 T14): the free plan's own limits, two pages, a sample every minute. */
   full?: { site: string; pages: number; joinMinutes: number };
   log?: (line: string) => void;
@@ -29,7 +32,21 @@ export interface SoakOptions {
 export const SCALES = { lifespan: 0.1, mating: 0.05 } as const;
 /** The full soak keeps real lifespans, so per-player costs compare with `MEASURED`'s; only maturity and cooldown are short. */
 export const FULL_SCALES = { lifespan: 1, mating: 0.05 } as const;
-const scalesOf = (opts: SoakOptions) => (opts.full ? FULL_SCALES : SCALES);
+/** The full soak and `--model-mix` play the model's mix at real lifespans. */
+const modelMixOf = (opts: SoakOptions): boolean => Boolean(opts.full || opts.modelMix);
+const scalesOf = (opts: SoakOptions) => (modelMixOf(opts) ? FULL_SCALES : SCALES);
+/**
+ * The mix the full soak plays (M14 T14d): the model's session length, and far fewer fights than the
+ * quick mode (about 6 a player-hour at 200 clients, measured: the join chance sets the rate, as a
+ * crowd always has a hunter). Matings are whatever the 5% cooldown allows. `checksOf` prices rows
+ * and messages by the mix the clients counted, so the check holds whatever the rates come to. The
+ * quick modes keep their fast mix: they must see every kind of event in minutes.
+ */
+export const FULL_MIX = {
+  dropEveryMs: ASSUMPTIONS.sessionMinutes * 60_000,
+  huntPerSecond: 0.0015,
+  huntJoinChance: 0.015,
+} as const;
 /** Clients that hatch together before the rest, and the pause between two joins. */
 const JOIN_GAP_MS = 150;
 const ORIGIN = 'http://localhost:5173';
@@ -55,6 +72,10 @@ export interface Soak {
   /** The hub's dropped messages by type, and the day's audit flags. */
   dropped: Record<string, number>;
   flags: Record<string, number>;
+  /** The meter's seated player-hours at the end (M14 T14d); absent from older runs. */
+  playerHours?: number;
+  /** Rows the hub wrote, by table, over the run (M14 T14d): what the rows per player-hour were for. */
+  rows?: Record<string, number>;
   /** `consistent(hub)` at the end: empty when every invariant holds. */
   inconsistencies: unknown[];
   verified: { checked: number; problems: string[] };
@@ -230,12 +251,14 @@ async function drive(opts: SoakOptions, hubPid: number): Promise<Soak> {
         failures.push(`pages: ${e instanceof Error ? e.message : String(e)}`);
       });
     }
+    const mix = modelMixOf(opts) ? FULL_MIX : null;
     for (let i = 0; i < opts.clients; i++) {
       const client = new LifeClient({
         url: `ws://localhost:${opts.port}/v1/hub`,
         index: i,
         bus,
         scales: scalesOf(opts),
+        ...(mix ?? {}),
         ...(opts.dropEveryMs !== undefined ? { dropEveryMs: opts.dropEveryMs } : {}),
       });
       clients.push(client);
@@ -306,6 +329,9 @@ async function drive(opts: SoakOptions, hubPid: number): Promise<Soak> {
     // the others wait past their timeout.
     const dropped = await getJson<Record<string, number>>(opts.port, '/v1/e2e/dropped');
     const audit = await getJson<{ day: Record<string, number> } | null>(opts.port, '/v1/e2e/audit');
+    const rows = await getJson<Record<string, number>>(opts.port, '/v1/e2e/rows');
+    const playerHours =
+      (await getJson<MetricsAnswer>(opts.port, '/v1/e2e/metrics')).today.playerMs / 3_600_000;
     const inconsistencies = await getJson<unknown[]>(
       opts.port,
       '/v1/e2e/consistency',
@@ -341,6 +367,8 @@ async function drive(opts: SoakOptions, hubPid: number): Promise<Soak> {
       deaths: sum(stats.map((s) => s.deaths)),
       notReady: sum(stats.map((s) => s.notReady)),
       dropped,
+      playerHours,
+      rows,
       flags: Object.fromEntries(Object.entries(audit?.day ?? {}).filter(([, n]) => n > 0)),
       inconsistencies,
       verified,
@@ -358,6 +386,7 @@ interface MetricsAnswer {
     byType: Record<string, number>;
     perPlayerMinute: { messages: number } | null;
     perPlayerHour: { rowsWritten: number } | null;
+    playerMs: number;
   };
 }
 

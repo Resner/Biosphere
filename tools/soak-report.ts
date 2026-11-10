@@ -2,8 +2,9 @@
 // series, `checksOf` judges them, and `reportOf` writes `docs/perf/soak.md`. The same inputs give the
 // same bytes.
 
-import { ratesOf } from '../worker/capacity';
+import { ASSUMPTIONS, fightMessages, ratesOf } from '../worker/capacity';
 import { MEASURED } from '../worker/plan';
+import { LIFECYCLE_ROWS } from './capacity-measure';
 import type { Soak } from './soak-run';
 
 /** One look at the authority: its process, its meter and its audit. */
@@ -61,6 +62,61 @@ export interface FullSeries {
   perPlayer: { messagesPerMinute: number | null; rowsWrittenPerHour: number | null };
   /** The proof bundles of the creatures the pages played. */
   pagesVerified: { checked: number; problems: string[] };
+}
+
+/** What each player did in an hour of the run, per the clients' own counts. */
+export interface PlayedMix {
+  /** Sign-ins: the first of every client and each one after a drop. */
+  sessions: number;
+  /** Fights, matings and hatches a player was in; promotions and restores. */
+  fights: number;
+  matings: number;
+  hatches: number;
+  promotions: number;
+}
+
+/** The mix the run played, or null for a run that kept no player-hours. */
+export function playedMix(run: Soak): PlayedMix | null {
+  const hours = run.playerHours;
+  if (!hours || hours <= 0) return null;
+  const per = (n: number | undefined) => (n ?? 0) / hours;
+  const t = run.totals;
+  return {
+    sessions: per(run.entered + (t.drops ?? 0)),
+    fights: per(t.fights),
+    matings: per(t.matings),
+    hatches: per(t.hatches),
+    promotions: per((t.promotes ?? 0) + (t.restores ?? 0)),
+  };
+}
+
+/**
+ * What the capacity model says a player-hour of that mix costs (M14 T14d): `MEASURED`'s rows for a
+ * session, the checkpoints, a fight (a player carries half of one's rows), a mating (half as well),
+ * a promotion or restore and a hatch, and its messages for the page and the fights.
+ */
+export function modelOf(mix: PlayedMix): { rowsPerHour: number; messagesPerMinute: number } {
+  const a = ASSUMPTIONS;
+  const rows =
+    mix.sessions * MEASURED.session.rowsWritten +
+    60 / a.checkpointMinutes +
+    (mix.fights / 2) * MEASURED.fightRows.written +
+    (mix.matings / 2) * MEASURED.lifecycle.mating +
+    mix.promotions * MEASURED.lifecycle.promote +
+    mix.hatches * LIFECYCLE_ROWS.hatch;
+  const outside =
+    MEASURED.world + MEASURED.page.progress + MEASURED.page.ping + MEASURED.page.avail;
+  const messages = outside * 60 + (mix.fights / 2) * fightMessages(MEASURED, a);
+  return { rowsPerHour: rows, messagesPerMinute: messages / 60 };
+}
+
+/** One line for any run: the rows it wrote a player-hour, against the model's for the mix it played. */
+export function mixLine(run: Soak): string | null {
+  const mix = playedMix(run);
+  if (!mix || !run.rows || !run.playerHours) return null;
+  const rows = Object.values(run.rows).reduce((n, v) => n + v, 0) / run.playerHours;
+  const model = modelOf(mix).rowsPerHour;
+  return `rows written per player-hour ${fixed(rows)}, the model's ${fixed(model)} for ${fixed(mix.sessions)} sessions, ${fixed(mix.fights)} fights, ${fixed(mix.matings)} matings, ${fixed(mix.promotions)} promotions and ${fixed(mix.hatches)} hatches a player-hour`;
 }
 
 export interface Check {
@@ -200,24 +256,32 @@ export function checksOf(run: Soak): Check[] {
       : `${fixed(late, 4)} ms against ${fixed(early, 4)} ms (${fixed(late / early)}x, limit ${LIMITS.cpuPerMessageRatio}x)`,
   );
 
+  // The model at the mix the clients played (a run that kept no player-hours: at the model's own).
   const rates = ratesOf(MEASURED);
-  const messagesLimit = (LIMITS.perPlayerRatio * rates.messagesPerHour) / 60;
+  const mix = playedMix(run);
+  const model = mix
+    ? modelOf(mix)
+    : { rowsPerHour: rates.rowsWrittenPerHour, messagesPerMinute: rates.messagesPerHour / 60 };
+  const played = mix
+    ? `the mix played: ${fixed(mix.sessions)} sessions, ${fixed(mix.fights)} fights, ${fixed(mix.matings)} matings and ${fixed(mix.hatches)} hatches a player-hour`
+    : '';
+  const messagesLimit = LIMITS.perPlayerRatio * model.messagesPerMinute;
   const m = full.perPlayer.messagesPerMinute;
   add(
     'messages per player-minute',
     m !== null && m <= messagesLimit,
     m === null
       ? 'no meter reading'
-      : `${fixed(m)} (MEASURED ${fixed(rates.messagesPerHour / 60)}, limit ${fixed(messagesLimit)})`,
+      : `${fixed(m)} (${mix ? 'model' : 'MEASURED'} ${fixed(model.messagesPerMinute)}, limit ${fixed(messagesLimit)})`,
   );
-  const rowsLimit = LIMITS.perPlayerRatio * rates.rowsWrittenPerHour;
+  const rowsLimit = LIMITS.perPlayerRatio * model.rowsPerHour;
   const r = full.perPlayer.rowsWrittenPerHour;
   add(
     'rows written per player-hour',
     r !== null && r <= rowsLimit,
     r === null
       ? 'no meter reading'
-      : `${fixed(r)} (MEASURED ${fixed(rates.rowsWrittenPerHour)}, limit ${fixed(rowsLimit)})`,
+      : `${fixed(r)} (${mix ? 'model' : 'MEASURED'} ${fixed(model.rowsPerHour)}, limit ${fixed(rowsLimit)}${mix ? `; ${played}` : ''})`,
   );
 
   const pageIds = [...new Set(full.pages.map((p) => p.page))].sort();
@@ -317,6 +381,19 @@ export function reportOf(run: Soak): string {
       row([k, run.totals[k] ?? 0]),
     ),
   ];
+  if (run.rows) {
+    const total = Object.values(run.rows).reduce((n, v) => n + v, 0);
+    lines.push(
+      '',
+      '## Rows written, by table',
+      '',
+      row(['Table', 'Rows', 'Share']),
+      row(['---', '---', '---']),
+      ...Object.entries(run.rows)
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .map(([table, n]) => row([table, n, `${fixed((100 * n) / total, 1)}%`])),
+    );
+  }
   if (full) {
     lines.push(
       '',

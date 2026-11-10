@@ -60,17 +60,17 @@ describe('the capacity report', () => {
       const fresh = Math.min(sessionCap(name), headroomOf(allowances(name), r));
       expect(seats).toBe(n0(fresh));
       if (players > fresh) {
-        expect(headroom).toBe(`past the cap of ${n0(sessionCap(name))}`);
+        expect(headroom).toBe(`past ${n0(fresh)} seats`);
         continue;
       }
       const h = crowdHours(allowances(name), r, players);
       expect([headroom, budget]).toEqual([hours(h.headroom), hours(h.budget)]);
     }
-    // ADR 0075's playtest: 200 on a fresh free day, over five hours before the headroom stops newcomers.
+    // ADR 0075's playtest: 200 on a fresh free day, over three hours before the headroom stops newcomers.
     expect(rows.find(([plan, crowd]) => plan === 'Free' && crowd === '200')?.[3]).toBe(
       crowdHours(allowances('free'), r, 200).headroom.toFixed(1),
     );
-    expect(crowdHours(allowances('free'), r, 200).headroom).toBeGreaterThan(5);
+    expect(crowdHours(allowances('free'), r, 200).headroom).toBeGreaterThan(3);
   });
 
   it('the log window in the code is what the rule gives', () => {

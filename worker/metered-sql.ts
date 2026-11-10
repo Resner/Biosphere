@@ -6,7 +6,15 @@
 export interface RowCounter {
   written: number;
   read: number;
+  /** Rows written by the table the statement names (an INSERT, UPDATE, DELETE or REPLACE); counted only when present (the E2E entry sets it). */
+  tables?: Record<string, number>;
 }
+
+const WRITES =
+  /^\s*(?:INSERT(?:\s+OR\s+\w+)?\s+INTO|REPLACE\s+INTO|UPDATE(?:\s+OR\s+\w+)?|DELETE\s+FROM)\s+["`]?(\w+)/i;
+
+/** The table a writing statement names, or `other` (a DDL statement, a statement that begins with a WITH). */
+export const tableOf = (query: string): string => WRITES.exec(query)?.[1]?.toLowerCase() ?? 'other';
 
 /**
  * A cursor that adds its rows to `counter` as they are read: a statement's rows read grow while
@@ -15,11 +23,18 @@ export interface RowCounter {
 function meteredCursor<T extends Record<string, SqlStorageValue>>(
   cursor: SqlStorageCursor<T>,
   counter: RowCounter,
+  query: string,
 ): SqlStorageCursor<T> {
   let written = 0;
   let read = 0;
+  let table: string | undefined;
   const account = () => {
-    counter.written += cursor.rowsWritten - written;
+    const rows = cursor.rowsWritten - written;
+    if (rows > 0 && counter.tables) {
+      table ??= tableOf(query);
+      counter.tables[table] = (counter.tables[table] ?? 0) + rows;
+    }
+    counter.written += rows;
     counter.read += cursor.rowsRead - read;
     written = cursor.rowsWritten;
     read = cursor.rowsRead;
@@ -78,7 +93,7 @@ function meteredCursor<T extends Record<string, SqlStorageValue>>(
 export function meteredSql(sql: SqlStorage, counter: RowCounter): SqlStorage {
   return {
     exec<T extends Record<string, SqlStorageValue>>(query: string, ...bindings: unknown[]) {
-      return meteredCursor(sql.exec<T>(query, ...bindings), counter);
+      return meteredCursor(sql.exec<T>(query, ...bindings), counter, query);
     },
     get databaseSize() {
       return sql.databaseSize;

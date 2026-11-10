@@ -139,6 +139,8 @@ export interface LifeClientOptions {
   absenceMs?: readonly [number, number];
   /** Chance per second of starting to hunt for a fight when nobody else does. Default 0.003; with a hunter in sight the chance per roll is 25%. */
   huntPerSecond?: number;
+  /** The chance per roll of joining a hunt already on. Default 0.25: with a crowd of clients someone always hunts, so the rate is this one. */
+  huntJoinChance?: number;
   /** Whether a fighter sends an input every frame (default: one client in four) instead of letting the autopilot fly. */
   scripted?: boolean;
   createSocket?: (url: string) => SocketLike;
@@ -856,7 +858,9 @@ export class LifeClient {
     if (t >= this.huntAgainAt && t >= this.huntUntil && state === 'idle') {
       this.huntAgainAt = t + HUNT_GAP_MS;
       const others = this.opts.bus.hunters(t).some((h) => h.id !== mine);
-      const chance = others ? 0.25 : (this.opts.huntPerSecond ?? 0.003) * (HUNT_GAP_MS / 1000);
+      const chance = others
+        ? (this.opts.huntJoinChance ?? 0.25)
+        : (this.opts.huntPerSecond ?? 0.003) * (HUNT_GAP_MS / 1000);
       if (this.rng.next() < chance) {
         this.huntUntil = t + HUNT_MS;
         this.opts.bus.hunt(mine, this.huntUntil);

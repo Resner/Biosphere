@@ -1,6 +1,6 @@
 # 0071: What one authority object serves, the session caps, and what 10,000 players need
 
-- Status: accepted, amended by 0075 (the free plan caps at 80% of one object, and a headroom cap follows the day's allowances) (fills in ADR 0067's capacity rule from the measurements: amends 0067 by setting the session caps and the paid plan's allowances; confirms ADR 0056's 14-day log window; settles ADR 0008's question about splitting hubs: not yet)
+- Status: accepted, amended by 0075 (the free plan caps at 80% of one object, and a headroom cap follows the day's allowances) and by 0079 (the model prices matings and promotions: 88.0 rows written a player-hour, not 65.5) (fills in ADR 0067's capacity rule from the measurements: amends 0067 by setting the session caps and the paid plan's allowances; confirms ADR 0056's 14-day log window; settles ADR 0008's question about splitting hubs: not yet)
 - Date: 2026-11-08
 
 ## Context

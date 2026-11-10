@@ -5,7 +5,9 @@ import {
   type FullSeries,
   failures,
   type HubSample,
+  modelOf,
   type PageSample,
+  playedMix,
   reportOf,
   slopePerHour,
 } from './soak-report';
@@ -136,6 +138,33 @@ describe('the soak checks', () => {
     expect(failed(run)).toEqual(['messages per player-minute', 'rows written per player-hour']);
   });
 
+  it('judge rows and messages against the model at the mix the clients played', () => {
+    const run = healthy();
+    run.playerHours = 180;
+    if (run.full) run.full.perPlayer = { messagesPerMinute: 14, rowsWrittenPerHour: 20 };
+    const mix = playedMix(run);
+    // 225 sign-ins, 40 fights, 90 matings, 30 restores and no hatches over 180 player-hours.
+    expect(mix).toMatchObject({ fights: 40 / 180, matings: 90 / 180, hatches: 0 });
+    expect(mix?.sessions).toBeCloseTo(225 / 180);
+    if (!mix) throw new Error('no mix');
+    const model = modelOf(mix);
+    // Sessions, four checkpoints, half a fight's, a mating's and a restore's rows: a few a player-hour.
+    expect(model.rowsPerHour).toBeGreaterThan(8);
+    expect(model.rowsPerHour).toBeLessThan(20);
+    expect(failed(run)).toEqual([]);
+    // Rows over 1.5 times the model's fail, and name the mix.
+    if (run.full) run.full.perPlayer.rowsWrittenPerHour = 1.6 * model.rowsPerHour;
+    expect(failed(run)).toEqual(['rows written per player-hour']);
+    const detail = checksOf(run).find((c) => c.name === 'rows written per player-hour')?.detail;
+    expect(detail).toContain('the mix played');
+    // A player who fights 20 times an hour is allowed the rows of 20 fights.
+    run.totals.fights = 20 * 180;
+    const busy = playedMix(run);
+    if (!busy) throw new Error('no mix');
+    expect(modelOf(busy).rowsPerHour).toBeGreaterThan(model.rowsPerHour + 300);
+    expect(failed(run)).toEqual([]);
+  });
+
   it('fail clients that were not seated, closes for rate and a missing page reload', () => {
     const run = healthy();
     run.entered = 190;
@@ -205,5 +234,15 @@ describe('the report', () => {
     bad.entered = 1;
     expect(reportOf(bad)).toContain('Result: FAIL');
     expect(reportOf(healthy())).toBe(reportOf(healthy()));
+  });
+
+  it('says which tables the rows written went to, the largest first', () => {
+    const run = healthy();
+    run.rows = { checkpoints: 10, encounters: 30, other: 10 };
+    const text = reportOf(run);
+    expect(text).toContain('## Rows written, by table');
+    expect(text).toContain('| encounters | 30 | 60.0% |');
+    expect(text.indexOf('| encounters |')).toBeLessThan(text.indexOf('| checkpoints |'));
+    expect(reportOf(healthy())).not.toContain('Rows written, by table');
   });
 });

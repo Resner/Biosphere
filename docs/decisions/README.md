@@ -25,7 +25,7 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | Lineage verification, proofs and retention | 0058, 0056, 0055, then 0009 | 0019, 0021, 0054 |
 | Witnesses, audits and anti-farming | 0062 (free slots, `engage:unseen`), 0059, 0058, then 0012 | 0010, 0054 |
 | The world, area of interest and signaling | 0064 (spawning, riding, crowd instances), 0063, 0062, 0061, then 0013 | 0007, 0016 |
-| Scale, metering, budgets and admission | 0075 (the headroom cap), 0071 (the caps), 0067 (plans, the scale proof, admission by reason), 0056 (storage), then 0008 | |
+| Scale, metering, budgets and admission | 0079 (matings priced, the soak's mix), 0075 (the headroom cap), 0071 (the caps), 0067 (plans, the scale proof, admission by reason), 0056 (storage), then 0008 | |
 | Interrupted transactions | 0076 (the ledger is the journal; a sign-in names what is in flight), 0053 (fights) | |
 
 ## Index
@@ -102,11 +102,12 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0068](0068-spawn-band-floor-at-the-centre.md) | The spawn band's floor near the centre: 0.26 within the centre cap's radius | accepted | |
 | [0069](0069-the-pure-parts-at-10000-members.md) | The pure parts at 10,000 members: placement from a wide group's edge and a window for the witness pool | accepted | |
 | [0070](0070-how-the-load-gates-read-at-10000.md) | How the load gates read at 10,000: the budget's tail, hidden creatures as a rate, and the run's time | accepted | |
-| [0071](0071-capacity-of-one-object-and-what-10000-need.md) | What one authority object serves, the session caps, and what 10,000 players need | accepted, amended | 0075 |
+| [0071](0071-capacity-of-one-object-and-what-10000-need.md) | What one authority object serves, the session caps, and what 10,000 players need | accepted, amended | 0075, 0079 |
 | [0072](0072-slow-e2e-in-four-shards.md) | The slow E2E scenarios run in four shards | accepted | |
 | [0073](0073-engage-clock-slack-one-second.md) | An engage's snapshots may be a second off the hub's clock | accepted | |
 | [0074](0074-permanent-lineages-from-v1-0.md) | From v1.0, lineages are permanent: one last renewal, rules 13, and frozen versions | accepted | |
-| [0075](0075-room-for-a-crowd-headroom-cap.md) | Room for a crowd: the session cap follows the day's headroom | accepted | |
+| [0075](0075-room-for-a-crowd-headroom-cap.md) | Room for a crowd: the session cap follows the day's headroom | accepted, amended | 0079 |
 | [0076](0076-interrupted-transactions-the-ledger-is-the-journal.md) | Interrupted transactions: the ledger is the journal, and a sign-in names what is in flight | accepted | |
 | [0077](0077-engines-what-ci-checks-and-what-the-owner-does.md) | The engines: what CI checks in Firefox and WebKit, and what only the owner can | accepted | |
 | [0078](0078-the-balance-simulation-and-how-its-gates-read.md) | The balance simulation: the score, the population and how the gates read | accepted | |
+| [0079](0079-the-model-prices-matings-and-the-soak-judges-the-mix-it-plays.md) | The capacity model prices matings and promotions, and the soak judges the mix it plays | accepted | |

@@ -128,5 +128,7 @@ describe('worker bundles', () => {
     expect(code).toContain('/v1/e2e/beacons');
     // And the hub's invariants after interrupted transactions (M14 T13).
     expect(code).toContain('/v1/e2e/consistency');
+    // And the rows written by table, for the soak's per-cause count (M14 T14d).
+    expect(code).toContain('/v1/e2e/rows');
   });
 });
