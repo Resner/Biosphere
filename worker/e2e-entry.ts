@@ -9,7 +9,7 @@ import live from './index';
 import { consistentYielding, type Inconsistency } from './interrupt-kit';
 import { HATCH_BUCKET } from './ledger-types';
 import { recoverFights } from './recover';
-import { type Session, socketsOf } from './socket';
+import { type Session, sessionOf, socketsOf } from './socket';
 import {
   armCrowds,
   type DirectoryView,
@@ -92,8 +92,23 @@ export class Authority extends LiveAuthority {
     this.receivedBy.set(ws, counts);
     const type = typeof data === 'string' ? /^\{"t":"([a-z0-9_-]+)"/.exec(data)?.[1] : undefined;
     counts[type ?? 'other'] = (counts[type ?? 'other'] ?? 0) + 1;
+    // The last messages of the socket with the time each was taken, to say what a rate close was
+    // made of (M14 T14e): it joins `flagLog`, whose lines the soak prints.
+    const ring = this.wire.get(ws) ?? [];
+    this.wire.set(ws, ring);
+    ring.push(`${type ?? 'other'}@${Date.now() % 100_000}`);
+    if (ring.length > 60) ring.shift();
     super.webSocketMessage(ws, data);
+    if (ws.readyState > 1 && this.flagLog.length < 60) {
+      const who = sessionOf(ws)?.playerId ?? '';
+      this.flagLog.push(
+        `closed in a message: locked ${this.fights.playerLocked(who)}, ended ${this.fights.fightEnded(who, 600_000) ?? 'never'} (hub ${this.clock.now()}), ${ring.join(' ')}`,
+      );
+      this.wire.delete(ws);
+    }
   }
+
+  private readonly wire = new WeakMap<WebSocket, string[]>();
 
   /** Each seated session with its count of received messages, for a load run to check against the meter (M13 T7). */
   sessions(): SeatedView[] {
