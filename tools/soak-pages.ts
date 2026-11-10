@@ -3,7 +3,9 @@
 // again after a death, and reload once at the half. Sampled every minute for the JS heap after a
 // forced collection, the renderer's resources and the frame times. Node only; every page dials localhost.
 
+import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { setPriority } from 'node:os';
 import {
   type Browser,
   type BrowserContext,
@@ -236,6 +238,7 @@ export class SoakPages {
   private browser: Browser | null = null;
   private context: BrowserContext | null = null;
   private readonly drivers: SoakPage[] = [];
+  private reniced = false;
 
   constructor(private readonly opts: PagesOptions) {}
 
@@ -245,6 +248,7 @@ export class SoakPages {
       ...(path ? { executablePath: path } : {}),
       args: ['--disable-features=WebRtcHideLocalIpsWithMdns'],
     });
+    this.yieldCpu();
     this.context = await this.browser.newContext({ viewport: { width: 960, height: 540 } });
     await this.context.addInitScript(FRAME_RECORDER);
     const startedAt = Date.now();
@@ -256,7 +260,45 @@ export class SoakPages {
     }
   }
 
+  /**
+   * Chromium's processes yield the CPU to the authority and the clients (nice 10): software GL
+   * would otherwise take the cores of a four-core runner, and a load generator starved of them
+   * hears of a fight's end seconds late (M14 T14e). New renderer processes are found at each sample.
+   */
+  private yieldCpu(): void {
+    try {
+      const rows = execFileSync('ps', ['-eo', 'pid=,ppid=,args='], { encoding: 'utf8' })
+        .trim()
+        .split('\n')
+        .map((l) => /^\s*(\d+)\s+(\d+)\s+(.*)$/.exec(l))
+        .flatMap((m) => (m ? [{ pid: Number(m[1]), ppid: Number(m[2]), args: m[3] ?? '' }] : []));
+      // The browsers under this process (a direct child, or one a launcher started), and everything under them.
+      const below = [process.pid];
+      for (let i = 0; i < below.length; i++)
+        for (const r of rows) if (r.ppid === below[i]) below.push(r.pid);
+      const tree = rows
+        .filter((r) => below.includes(r.pid) && /chrom|headless_shell/i.test(r.args))
+        .map((r) => r.pid);
+      for (let i = 0; i < tree.length; i++)
+        for (const r of rows) if (r.ppid === tree[i] && !tree.includes(r.pid)) tree.push(r.pid);
+      let set = 0;
+      for (const pid of tree) {
+        try {
+          setPriority(pid, 10);
+          set++;
+        } catch {
+          // gone already
+        }
+      }
+      if (set > 0 && !this.reniced) this.opts.log(`${set} browser processes at nice 10`);
+      this.reniced ||= set > 0;
+    } catch {
+      // no `ps`: the pages keep their priority
+    }
+  }
+
   async sample(minute: number): Promise<PageSample[]> {
+    this.yieldCpu();
     return Promise.all(this.drivers.map((d) => d.sample(minute)));
   }
 

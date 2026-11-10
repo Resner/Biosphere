@@ -12,6 +12,8 @@ import {
   type SignedSnap,
   type Snapshot,
 } from '../src/net/protocol';
+import { ENC_MAX_FRAME } from '../src/net/protocol-defs';
+import { FRAME_MS } from '../src/net/referee';
 import { seedFromString } from '../src/sim/prng';
 import { RULES, TICK_HZ } from '../src/sim/rules';
 import { LifeClient, lifeSeedOf, SnapBus } from './life-client';
@@ -49,6 +51,8 @@ class FakeHub implements SocketLike {
   onclose: ((ev: { code: number }) => void) | null = null;
   onerror: (() => void) | null = null;
   readonly sent: ClientMsg[] = [];
+  /** When each message in `sent` arrived (the fake clock). */
+  readonly at: number[] = [];
   closed = false;
   constructor(private readonly hello: (hub: FakeHub) => void) {
     queueMicrotask(() => this.say({ t: 'challenge', nonce: `${'d'.repeat(21)}Q` }));
@@ -59,6 +63,7 @@ class FakeHub implements SocketLike {
   send(data: string) {
     const msg = JSON.parse(data) as ClientMsg;
     this.sent.push(msg);
+    this.at.push(Date.now());
     if (msg.t === 'hello') {
       this.say({ t: 'welcome', world: WORLD, ice: [], turn: false, now: Date.now() + hubAhead });
       this.hello(this);
@@ -281,6 +286,59 @@ describe('the life client', () => {
     expect(last.ticks).toBeGreaterThan(0);
     expect(last.ticks).toBeLessThanOrEqual(66 * TICK_HZ);
     client.stop();
+  });
+
+  it('holds its periodic reports back while the hub rate window is nearly full', async () => {
+    const { client } = make();
+    const socket = (client as unknown as { socket(url: string): SocketLike }).socket('ws://x');
+    const hub = hubs[0] as FakeHub;
+    const types = () => hub.sent.map((m) => m.t);
+    socket.send(JSON.stringify({ t: 'where', x: 1, y: 1, r: 10, aoi: 233 }));
+    expect(types()).toEqual(['where']);
+    // 15 sends inside the window (a reconnect's burst): the periodic reports wait, the rest go.
+    for (let i = 0; i < 14; i++) socket.send(JSON.stringify({ t: 'ping', id: i, now: 0 }));
+    socket.send(JSON.stringify({ t: 'where', x: 2, y: 2, r: 10, aoi: 233 }));
+    socket.send(JSON.stringify({ t: 'gone' }));
+    expect(types().filter((t) => t === 'where')).toHaveLength(1);
+    expect(types().at(-1)).toBe('gone');
+    await vi.advanceTimersByTimeAsync(10_001);
+    socket.send(JSON.stringify({ t: 'where', x: 3, y: 3, r: 10, aoi: 233 }));
+    expect(types().filter((t) => t === 'where')).toHaveLength(2);
+  });
+
+  it('does not send the inputs a starved loop missed', () => {
+    const { client } = make({ scripted: true });
+    const sent: ClientMsg[] = [];
+    const inner = client as unknown as {
+      fight: { enc: string; at: number; sentTo: number };
+      hub: { send(m: ClientMsg): void };
+      fightInputs(t: number): void;
+    };
+    inner.hub = { send: (m) => sent.push(m) };
+    inner.fight = { enc: 'e'.repeat(64), at: 0, sentTo: 3 };
+    // 20 s later (about 200 frames behind): only the frames near the clock go out.
+    inner.fightInputs(20_000);
+    inner.fightInputs(20_000);
+    expect(sent.length).toBeGreaterThan(0);
+    expect(sent.length).toBeLessThanOrEqual(8);
+    const frames = sent.map((m) => (m as Extract<ClientMsg, { t: 'input' }>).f);
+    expect(Math.min(...frames)).toBeGreaterThan(Math.floor(20_000 / FRAME_MS) - 8);
+  });
+
+  it('sends no input past the last frame the protocol names', () => {
+    const { client } = make({ scripted: true });
+    const sent: ClientMsg[] = [];
+    const inner = client as unknown as {
+      fight: { enc: string; at: number; sentTo: number };
+      hub: { send(m: ClientMsg): void };
+      fightInputs(t: number): void;
+    };
+    inner.hub = { send: (m) => sent.push(m) };
+    inner.fight = { enc: 'e'.repeat(64), at: 0, sentTo: ENC_MAX_FRAME - 2 };
+    for (let i = 0; i < 5; i++) inner.fightInputs(200_000 + i * 100);
+    const frames = sent.map((m) => (m as Extract<ClientMsg, { t: 'input' }>).f);
+    expect(frames.length).toBeGreaterThan(0);
+    expect(Math.max(...frames)).toBe(ENC_MAX_FRAME);
   });
 
   it('answers a lock-ask with its own fresh snapshot', async () => {

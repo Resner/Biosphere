@@ -7,6 +7,7 @@ import { type ChildProcess, spawn } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { monitorEventLoopDelay } from 'node:perf_hooks';
 import { verifyLineage } from '../src/ledger/verify';
 import { LifeClient, type LifeStats, SnapBus } from '../tests/life-client';
 import { ASSUMPTIONS } from '../worker/capacity';
@@ -81,6 +82,11 @@ export interface Soak {
   verified: { checked: number; problems: string[] };
   /** The full run's series: the authority and the pages sampled every minute (M14 T14). */
   full?: FullSeries;
+  /**
+   * How late this process's own timers ran, each minute (M14 T14e): the clients share one thread,
+   * and a loop seconds late hears of a fight's end seconds late. Only in the JSON.
+   */
+  clientLag?: { minute: number; p99Ms: number; maxMs: number }[];
 }
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -229,6 +235,9 @@ async function drive(opts: SoakOptions, hubPid: number): Promise<Soak> {
   let entered = 0;
   const t0 = Date.now();
   const hubSamples: HubSample[] = [];
+  const loopDelay = monitorEventLoopDelay({ resolution: 20 });
+  loopDelay.enable();
+  const clientLag: NonNullable<Soak['clientLag']> = [];
   const pageSamples: PageSample[] = [];
   const watch = new RuntimeWatch(hubPid);
   const heap = new ObjectHeap(hubPid, () => {
@@ -284,6 +293,12 @@ async function drive(opts: SoakOptions, hubPid: number): Promise<Soak> {
       if (opts.full && Date.now() >= t0 + (sampled + 1) * 60_000) {
         sampled++;
         const minute = sampled;
+        clientLag.push({
+          minute,
+          p99Ms: Math.round(loopDelay.percentile(99) / 1e6),
+          maxMs: Math.round(loopDelay.max / 1e6),
+        });
+        loopDelay.reset();
         try {
           hubSamples.push(
             await sampleHub(opts.port, watch, heap, minute, minute % CONSISTENT_EVERY === 0),
@@ -329,6 +344,9 @@ async function drive(opts: SoakOptions, hubPid: number): Promise<Soak> {
     // the others wait past their timeout.
     const dropped = await getJson<Record<string, number>>(opts.port, '/v1/e2e/dropped');
     const audit = await getJson<{ day: Record<string, number> } | null>(opts.port, '/v1/e2e/audit');
+    // The first reports behind a creature flag, so a failed check says what they were.
+    for (const line of await getJson<string[]>(opts.port, '/v1/e2e/flags'))
+      failures.push(`flagged report: ${line}`);
     const rows = await getJson<Record<string, number>>(opts.port, '/v1/e2e/rows');
     const playerHours =
       (await getJson<MetricsAnswer>(opts.port, '/v1/e2e/metrics')).today.playerMs / 3_600_000;
@@ -359,6 +377,7 @@ async function drive(opts: SoakOptions, hubPid: number): Promise<Soak> {
     const totals = sum(stats);
     return {
       config: { clients: opts.clients, minutes: opts.minutes },
+      clientLag,
       entered,
       failures,
       totals,
@@ -401,23 +420,34 @@ async function sampleHub(
   // The process and the object's heap first: the consistency check below holds the hub's thread.
   const proc = watch.now();
   const heapBytes = await heap.now();
-  const [metrics, audit, inconsistencies] = await Promise.all([
+  const [metrics, audit] = await Promise.all([
     getJson<MetricsAnswer>(port, '/v1/e2e/metrics'),
     getJson<{ day: Record<string, number> } | null>(port, '/v1/e2e/audit'),
-    inconsistent
-      ? getJson<{ kind: string; detail?: string }[]>(
-          port,
-          '/v1/e2e/consistency',
-          CONSISTENT_READ_MS,
-        )
-      : Promise.resolve(null),
   ]);
+  const taken = (m: MetricsAnswer) => Object.values(m.today.byType).reduce((n, v) => n + v, 0);
+  // The read apart, with the process and the meter before and after it, so the CPU per message
+  // check can leave its cost out (it grows with the creatures).
+  let inconsistencies: { kind: string; detail?: string }[] | null = null;
+  let read: { cpuMs: number; messages: number } | null = null;
+  if (inconsistent) {
+    const before = watch.now().cpuMs;
+    // The meter read right after the process: the read's CPU and messages are taken at the same moments.
+    const at = taken(await getJson<MetricsAnswer>(port, '/v1/e2e/metrics'));
+    inconsistencies = await getJson<{ kind: string; detail?: string }[]>(
+      port,
+      '/v1/e2e/consistency',
+      CONSISTENT_READ_MS,
+    );
+    const after = watch.now().cpuMs;
+    const end = taken(await getJson<MetricsAnswer>(port, '/v1/e2e/metrics'));
+    read = before === null || after === null ? null : { cpuMs: after - before, messages: end - at };
+  }
   return {
     minute,
     cpuMs: proc.cpuMs,
     rssBytes: proc.rssBytes,
     heapBytes,
-    messages: Object.values(metrics.today.byType).reduce((n, v) => n + v, 0),
+    messages: taken(metrics),
     seated: metrics.live.seated,
     queued: metrics.live.queued,
     consistent: inconsistencies
@@ -432,6 +462,7 @@ async function sampleHub(
         }
       : null,
     flags: Object.fromEntries(Object.entries(audit?.day ?? {}).filter(([, n]) => n > 0)),
+    read,
   };
 }
 

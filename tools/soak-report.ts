@@ -29,6 +29,12 @@ export interface HubSample {
   consistent: { kinds: Record<string, number>; first: string[] } | null;
   /** Today's audit flags above zero. */
   flags: Record<string, number>;
+  /**
+   * What the consistency read cost after this sample (M14 T14e): the processes' CPU and the
+   * messages taken while it verified every chain. The cost grows with the creatures, so the CPU per
+   * message check leaves it out. Absent where no read was made, and in runs recorded before.
+   */
+  read?: { cpuMs: number; messages: number } | null;
 }
 
 /** One look at a page: its heap after a forced collection, the renderer's resources and its frames. */
@@ -181,8 +187,16 @@ export function cpuPerMessage(hub: readonly HubSample[], from: number, to: numbe
   const a = nearest(hub, from);
   const b = nearest(hub, to);
   if (!a || !b || a.cpuMs === null || b.cpuMs === null) return null;
-  const messages = b.messages - a.messages;
-  return messages > 0 ? (b.cpuMs - a.cpuMs) / messages : null;
+  // The consistency reads between the two samples are not the hub's work for its players.
+  let cpu = b.cpuMs - a.cpuMs;
+  let messages = b.messages - a.messages;
+  for (const s of hub) {
+    if (s.minute >= a.minute && s.minute < b.minute && s.read) {
+      cpu -= s.read.cpuMs;
+      messages -= s.read.messages;
+    }
+  }
+  return messages > 0 ? cpu / messages : null;
 }
 
 const fixed = (n: number, digits = 2): string => n.toFixed(digits);

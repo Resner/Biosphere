@@ -132,6 +132,20 @@ describe('where and near', () => {
     expect(types(await flush(a.c))).toEqual([]);
     expect(await droppedWheres()).toBe(before + 1);
   });
+
+  it('keeps a creature whose life is over out of the directory: a late where is ignored, not counted', async () => {
+    const a = await hatched();
+    await placed(a, C);
+    a.c.send({ t: 'death', cause: 'toxin', ticks: 0 });
+    await nextOf(a.c, 'died');
+    expect(await authority((o) => o.directory.member(a.id.playerId))).toBeNull();
+    const before = await droppedWheres();
+    // The page had not heard of the death yet: its report crosses the `died`.
+    await where(a, C + 5);
+    await flush(a.c);
+    expect(await authority((o) => o.directory.member(a.id.playerId))).toBeNull();
+    expect(await droppedWheres()).toBe(before);
+  });
 });
 
 describe('jumps', () => {

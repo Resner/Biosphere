@@ -235,6 +235,8 @@ export function progress(
   const { life, newFlags } = applyReport(current, msg, now);
   for (const kind of newFlags) {
     hub.ledger.audit.raise(kind, { owner: session.playerId, creature: life.creature, t: now });
+    if (hub.flagLog && hub.flagLog.length < 60)
+      hub.flagLog.push(JSON.stringify({ kind, now, report: msg, before: current }));
   }
   let next = checkpointDue(life) ? checkpoint(hub, life, session.playerId) : life;
   ack(ws, msg.n, next);

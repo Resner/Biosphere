@@ -261,6 +261,9 @@ export function where(
   session: ActiveSession,
   msg: ClientMsg & { t: 'where' },
 ): void {
+  // A creature whose life is over is out of the water (ADR 0076): a report that crossed its `died`
+  // on the wire is ignored, not counted (the page stops reporting on hearing of the death).
+  if (session.life?.over) return;
   const now = hub.clock.now();
   if (!hub.directory.inside(msg.x, msg.y)) {
     count(hub, 'where');

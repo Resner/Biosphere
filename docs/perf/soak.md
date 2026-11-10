@@ -9,75 +9,99 @@ Reproduce with `npm run soak -- --full` (about 70 minutes; `.github/workflows/so
 | Check | Result | Detail |
 | --- | --- | --- |
 | every client seated at once | pass | 200 of 200 |
-| no socket closed for its rate | **FAIL** | 436 closed |
+| no socket closed for its rate | pass | 0 closed |
 | no where dropped | pass | 0 dropped |
-| no audit flag but authority-only | **FAIL** | biomass-over-max 5, growth-too-fast 157, energy-over 39, health-over 130, clock-too-fast 293, claim-over 2 |
-| consistent empty at every sample | **FAIL** | minutes 1, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 16, 17, 19, 34 |
-| no audit flag at any sample | **FAIL** | minutes 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 16, 17, 18, 19, 20, 21, 22, 23, 24, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 50, 51, 52, 53, 54 |
+| no audit flag but authority-only | **FAIL** | growth-too-fast 10, energy-over 1, health-over 5, claim-over 1 |
+| consistent empty at every sample | pass | 60 samples |
+| no audit flag at any sample | **FAIL** | minutes 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60 |
 | nobody waited in line | pass | at most 0 queued |
-| authority heap level | **FAIL** | no heap samples |
-| authority CPU per message level | pass | 18.2593 ms against 17.5248 ms (1.04x, limit 1.5x) |
-| messages per player-minute | pass | 17.13 (MEASURED 19.57, limit 29.35) |
-| rows written per player-hour | **FAIL** | 187.96 (MEASURED 88.01, limit 132.01) |
+| authority heap level | pass | 1.2 MB an hour (limit 20), 13.4 MB at minute 60 |
+| authority CPU per message level | pass | 2.0993 ms against 1.4960 ms (1.40x, limit 1.5x) |
+| messages per player-minute | pass | 8.78 (model 20.98, limit 31.48) |
+| rows written per player-hour | pass | 121.44 (model 159.70, limit 239.55; the mix played: 2.87 sessions, 3.48 fights, 4.73 matings and 1.26 hatches a player-hour) |
 | pages sampled | pass | 2 pages |
-| page 1 heap level | pass | 10.5 MB at minute 10, 9.6 MB at 54 (-9.3%) |
+| page 1 heap level | pass | 10.9 MB at minute 10, 9.5 MB at 55 (-12.5%) |
 | page 1 renderer resources do not grow | pass | geometries 11 → 9, textures 1 → 1, programs 9 → 7 |
-| page 1 frame time level | pass | p95 1116.6 ms at minute 5, 1099.9 ms at 54 |
-| page 2 heap level | pass | 12.5 MB at minute 10, 10.4 MB at 54 (-16.2%) |
+| page 1 frame time level | pass | p95 116.7 ms at minute 5, 116.6 ms at 55 |
+| page 2 heap level | pass | 11.2 MB at minute 10, 9.7 MB at 55 (-14.0%) |
 | page 2 renderer resources do not grow | pass | geometries 11 → 9, textures 1 → 1, programs 9 → 7 |
-| page 2 frame time level | pass | p95 150.1 ms at minute 5, 150.0 ms at 54 |
-| page 1 played and reloaded | pass | 4 hatches, reloads at 30 |
-| page 2 played and reloaded | pass | 3 hatches, reloads at 30.1 |
-| bundles verify | pass | 237 sampled, 2 of the pages' creatures |
+| page 2 frame time level | pass | p95 100.1 ms at minute 5, 100.1 ms at 55 |
+| page 1 played and reloaded | **FAIL** | 5 hatches, reloads at 30, errors: pageerror: food c489_485_s1_k0 is not alive; pageerror: food c489_485_s1_k0 is not alive; pageerror: food c489_485_s1_k0 is not alive |
+| page 2 played and reloaded | pass | 3 hatches, reloads at 30 |
+| bundles verify | pass | 240 sampled, 3 of the pages' creatures |
 
 ## What happened
 
 | Count | Total |
 | --- | --- |
-| matings | 759 |
-| births | 744 |
-| fights | 1312 |
-| kills | 91 |
-| restores | 140 |
-| drops | 1039 |
+| matings | 948 |
+| births | 943 |
+| fights | 698 |
+| kills | 42 |
+| restores | 74 |
+| drops | 374 |
+
+## Rows written, by table
+
+| Table | Rows | Share |
+| --- | --- | --- |
+| creatures | 9226 | 38.1% |
+| records | 5568 | 23.0% |
+| encounters | 2952 | 12.2% |
+| commitments | 2192 | 9.0% |
+| matings | 1424 | 5.9% |
+| players | 1097 | 4.5% |
+| flags | 1094 | 4.5% |
+| beacons | 423 | 1.7% |
+| genesis_log | 256 | 1.1% |
+| ponds | 2 | 0.0% |
+| keys | 1 | 0.0% |
 
 ## Authority, per minute
 
 | Minute | Heap MB | Resident MB | CPU s | Messages | Seated | Queued |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | - | 691.1 | 74.2 | 16160 | 189 | 0 |
-| 6 | - | 833.2 | 192.4 | 22641 | 175 | 0 |
-| 12 | - | 808.4 | 454.2 | 38080 | 179 | 0 |
-| 18 | - | 881.8 | 831.3 | 58134 | 188 | 0 |
-| 23 | - | 918.5 | 1039.2 | 70743 | 187 | 0 |
-| 32 | - | 974.4 | 1655.8 | 99439 | 185 | 0 |
-| 37 | - | 967.1 | 1803.2 | 108664 | 168 | 0 |
-| 53 | - | 1076.6 | 3046.0 | 149664 | 184 | 0 |
-| 54 | - | 1077.0 | 3075.2 | 151305 | 177 | 0 |
+| 1 | 10.5 | 476.4 | 14.9 | 9858 | 194 | 0 |
+| 6 | 11.9 | 498.4 | 43.8 | 11219 | 200 | 0 |
+| 11 | 12.7 | 509.8 | 110.6 | 20388 | 200 | 0 |
+| 16 | 12.9 | 516.1 | 196.2 | 29240 | 196 | 0 |
+| 21 | 12.9 | 527.9 | 299.0 | 38390 | 193 | 0 |
+| 26 | 13.5 | 531.1 | 418.7 | 48174 | 198 | 0 |
+| 31 | 13.2 | 541.5 | 553.6 | 56473 | 194 | 0 |
+| 36 | 13.1 | 544.1 | 697.0 | 64849 | 197 | 0 |
+| 41 | 13.3 | 548.8 | 845.0 | 72637 | 194 | 0 |
+| 46 | 13.3 | 554.9 | 1012.3 | 81148 | 197 | 0 |
+| 51 | 13.4 | 554.3 | 1187.7 | 89316 | 196 | 0 |
+| 56 | 13.9 | 556.5 | 1371.9 | 97666 | 192 | 0 |
+| 60 | 13.4 | 476.2 | 1376.3 | 99819 | 194 | 0 |
 
 ## Pages, every five minutes
 
 | Page | Minute | Heap MB | Geometries | Textures | Programs | Frame p95 ms |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | 5 | 9.7 | 11 | 1 | 9 | 1116.6 |
-| 2 | 5 | 11.6 | 11 | 1 | 9 | 150.1 |
-| 1 | 10 | 10.5 | 11 | 1 | 9 | 1200.0 |
-| 2 | 10 | 12.5 | 11 | 1 | 9 | 283.3 |
-| 1 | 15 | 10.7 | 11 | 1 | 9 | 1116.6 |
-| 2 | 15 | 11.2 | 11 | 1 | 9 | 150.0 |
-| 1 | 20 | 10.3 | 11 | 1 | 9 | 1116.7 |
-| 2 | 20 | 10.9 | 11 | 1 | 9 | 150.0 |
-| 1 | 25 | 11.2 | 11 | 1 | 9 | 1116.7 |
-| 2 | 25 | 11.5 | 11 | 1 | 9 | 150.0 |
-| 1 | 30 | 8.8 | 9 | 1 | 7 | 1116.7 |
-| 2 | 30 | 9.8 | 9 | 1 | 7 | 166.7 |
-| 1 | 35 | 9.1 | 9 | 1 | 7 | 1116.6 |
-| 2 | 35 | 9.8 | 9 | 1 | 7 | 150.0 |
-| 1 | 40 | 9.6 | 9 | 1 | 7 | 1183.3 |
-| 2 | 40 | 9.8 | 9 | 1 | 7 | 299.9 |
-| 1 | 45 | 9.4 | 9 | 1 | 7 | 1100.0 |
-| 2 | 45 | 10.3 | 9 | 1 | 7 | 150.0 |
-| 1 | 50 | 9.9 | 9 | 1 | 7 | 1116.5 |
-| 2 | 50 | 10.0 | 9 | 1 | 7 | 150.0 |
+| 1 | 5 | 10.6 | 11 | 1 | 9 | 116.7 |
+| 2 | 5 | 11.0 | 11 | 1 | 9 | 100.1 |
+| 1 | 10 | 10.9 | 11 | 1 | 9 | 100.0 |
+| 2 | 10 | 11.2 | 11 | 1 | 9 | 100.0 |
+| 1 | 15 | 10.4 | 11 | 1 | 9 | 100.1 |
+| 2 | 15 | 11.8 | 11 | 1 | 9 | 100.0 |
+| 1 | 20 | 10.8 | 11 | 1 | 9 | 100.1 |
+| 2 | 20 | 11.9 | 11 | 1 | 9 | 100.0 |
+| 1 | 25 | 12.1 | 11 | 1 | 9 | 100.1 |
+| 2 | 25 | 11.2 | 11 | 1 | 9 | 100.1 |
+| 1 | 30 | 10.1 | 9 | 1 | 7 | 116.6 |
+| 2 | 30 | 9.8 | 9 | 1 | 7 | 100.1 |
+| 1 | 35 | 9.4 | 9 | 1 | 7 | 100.0 |
+| 2 | 35 | 9.4 | 9 | 1 | 7 | 100.0 |
+| 1 | 40 | 9.5 | 9 | 1 | 7 | 100.0 |
+| 2 | 40 | 10.1 | 9 | 1 | 7 | 100.0 |
+| 1 | 45 | 9.3 | 9 | 1 | 7 | 100.1 |
+| 2 | 45 | 9.9 | 9 | 1 | 7 | 100.1 |
+| 1 | 50 | 10.1 | 9 | 1 | 7 | 116.6 |
+| 2 | 50 | 10.0 | 9 | 1 | 7 | 116.6 |
+| 1 | 55 | 9.5 | 9 | 1 | 7 | 116.6 |
+| 2 | 55 | 9.7 | 9 | 1 | 7 | 100.1 |
+| 1 | 60 | 13.3 | 10 | 1 | 8 | 99.9 |
+| 2 | 60 | 10.1 | 9 | 1 | 7 | 100.0 |
 
 Result: FAIL

@@ -6,10 +6,10 @@ import type { BeaconSource } from './beacons';
 import { type WitnessView, witnessView } from './duty';
 import { fixtureSource } from './fixture-beacons';
 import live from './index';
-import { consistent, type Inconsistency } from './interrupt-kit';
+import { consistentYielding, type Inconsistency } from './interrupt-kit';
 import { HATCH_BUCKET } from './ledger-types';
 import { recoverFights } from './recover';
-import { type Session, socketsOf } from './socket';
+import { type Session, sessionOf, socketsOf } from './socket';
 import {
   armCrowds,
   type DirectoryView,
@@ -54,6 +54,7 @@ export class Authority extends LiveAuthority {
     super(ctx, env);
     // The meter's rows by table (M14 T14d) is for the soak to read: production does not parse a statement per write.
     this.rowCount.tables = {};
+    this.traceLocks();
   }
 
   protected override beaconSource(): BeaconSource {
@@ -92,7 +93,36 @@ export class Authority extends LiveAuthority {
     this.receivedBy.set(ws, counts);
     const type = typeof data === 'string' ? /^\{"t":"([a-z0-9_-]+)"/.exec(data)?.[1] : undefined;
     counts[type ?? 'other'] = (counts[type ?? 'other'] ?? 0) + 1;
+    // The last messages of the socket with the time each was taken, to say what a rate close was
+    // made of (M14 T14e): it joins `flagLog`, whose lines the soak prints.
+    const ring = this.wire.get(ws) ?? [];
+    this.wire.set(ws, ring);
+    ring.push(`${type ?? 'other'}@${Date.now() % 100_000}`);
+    if (ring.length > 60) ring.shift();
     super.webSocketMessage(ws, data);
+    if (ws.readyState > 1 && this.flagLog.length < 60) {
+      const session = sessionOf(ws);
+      const who = session && 'playerId' in session ? session.playerId : '';
+      this.flagLog.push(
+        `closed in a message: locked ${this.fights.playerLocked(who)}, ended ${this.fights.fightEnded(who, 600_000) ?? 'never'} (hub ${this.clock.now()}), locks ${(this.locks.get(who) ?? []).join(' ')}, ${ring.slice(-12).join(' ')}`,
+      );
+      this.wire.delete(ws);
+    }
+  }
+
+  private readonly wire = new WeakMap<WebSocket, string[]>();
+  /** Each player's last lock events (`Fights.trace`), for the same line. */
+  private readonly locks = new Map<string, string[]>();
+
+  traceLocks(): void {
+    this.fights.trace = (players, what) => {
+      for (const p of players) {
+        const ring = this.locks.get(p) ?? [];
+        this.locks.set(p, ring);
+        ring.push(`${what}@${Date.now() % 100_000}`);
+        if (ring.length > 8) ring.shift();
+      }
+    };
   }
 
   /** Each seated session with its count of received messages, for a load run to check against the meter (M13 T7). */
@@ -115,6 +145,13 @@ export class Authority extends LiveAuthority {
   /** Sets today's request-equivalents, so a scenario can spend or refill the day's budget (M13 T12). */
   setUsage(requests: number): void {
     this.usage.setRequests(Date.now(), requests);
+  }
+
+  /** The first reports that raised a creature flag, in words for a soak's failure lines (M14 T14e). */
+  flagLog: string[] = [];
+
+  flagDetails(): string[] {
+    return [...this.flagLog];
   }
 
   /** Messages dropped without closing the socket, by type (the cost check, M13 T7). */
@@ -188,17 +225,21 @@ export class Authority extends LiveAuthority {
   }
 
   /** The invariants every interrupted transaction must leave, for a scenario or a soak to read (M14 T13); empty when they hold. */
-  consistency(): Inconsistency[] {
+  async consistency(): Promise<Inconsistency[]> {
     // The check reads every creature's chain: it is the test's own look, and must not spend the plan's
-    // rows-read allowance that the soak measures (and whose 90% guard closes the line). It never awaits,
-    // so nothing else counts rows while it runs.
-    const before = { ...this.rowCount };
-    try {
-      return consistent(this);
-    } finally {
-      this.rowCount.read = before.read;
-      this.rowCount.written = before.written;
-    }
+    // rows-read allowance that the soak measures (and whose 90% guard closes the line). Each slice is
+    // synchronous, so nothing else counts rows while it runs; between slices the object serves its
+    // messages, as a stall of over a minute made a soak's clients look like they flooded it.
+    const quiet = <T>(work: () => T): T => {
+      const before = { read: this.rowCount.read, written: this.rowCount.written };
+      try {
+        return work();
+      } finally {
+        this.rowCount.read = before.read;
+        this.rowCount.written = before.written;
+      }
+    };
+    return consistentYielding(this, quiet, () => new Promise((r) => setTimeout(r, 0)));
   }
 
   /** An event's witnesses for a scenario to wait on (M10 T4); null without a witness commitment. */
@@ -289,6 +330,12 @@ export default {
         rowTables(): Promise<Record<string, number>>;
       };
       return Response.json(await stub.rowTables());
+    }
+    if (pathname === '/v1/e2e/flags' && request.method === 'GET') {
+      const stub = env.AUTHORITY.get(env.AUTHORITY.idFromName('global')) as unknown as {
+        flagDetails(): Promise<string[]>;
+      };
+      return Response.json(await stub.flagDetails());
     }
     if (pathname === '/v1/e2e/dropped' && request.method === 'GET') {
       const stub = env.AUTHORITY.get(env.AUTHORITY.idFromName('global')) as unknown as {

@@ -60,6 +60,8 @@ export interface Hub {
   readonly spawns: RecentSpawn[];
   /** Messages dropped without closing the socket, by type (a `where` jump among them). */
   readonly dropped: Map<ClientMsg['t'], number>;
+  /** The E2E entry's record of the reports that raised a creature flag, for a soak to say what they were (M14 T14e); absent in production. */
+  readonly flagLog?: string[];
   /** The one way to set or clear the object's alarm (`.claude/rules/worker.md`). */
   rearm(): Promise<void>;
 }

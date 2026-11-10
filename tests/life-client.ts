@@ -33,6 +33,7 @@ import {
   type SignedSnap,
   type Snapshot,
 } from '../src/net/protocol';
+import { ENC_MAX_FRAME } from '../src/net/protocol-defs';
 import { FRAME_MS } from '../src/net/referee';
 import { WhereReporter } from '../src/net/where';
 import { encodeFrameInput } from '../src/sim/encounter/codec';
@@ -52,9 +53,21 @@ const HUNDREDTHS = 100;
 const ORIGIN = 'http://localhost:5173';
 /** One step of the loop. */
 const LOOP_MS = 100;
-/** The most ticks one step plays to catch up with the pond clock; a bigger lag jumps. */
-const CATCH_UP_TICKS = 12;
+/**
+ * Ticks one loop (100 ms) may play: 3 are real time. A client that fell behind (200 of them share
+ * one thread) plays at most this much faster than real time, and jumps ahead past 4 times it: the
+ * hub credits the ticks of a report at most the wall time since the last one plus 2 s, so a
+ * creature that grew 4 times faster for a while read as growing too fast (M14 T14e).
+ */
+const CATCH_UP_TICKS = 5;
+/** Periodic reports a client holds back near the hub's 20 messages per 10 s (`RATE_MAX_MESSAGES`), and the count from which it does. */
+const PERIODIC: ReadonlySet<string> = new Set(['where', 'mate-check']);
+const WINDOW_SOFT_CAP = 15;
+/** Frames behind the clock after which a scripted fighter skips ahead instead of sending the inputs it missed. */
+const STALE_FRAMES = 4;
 const SNAP_MS = 200;
+/** The same while nobody hunts. */
+const IDLE_SNAP_MS = 1000;
 const FIRST_REPORT_TICKS = 5 * TICK_HZ;
 const REPORT_EVERY_TICKS = 30 * TICK_HZ;
 const WAIT_MS = 60_000;
@@ -238,6 +251,9 @@ export class LifeClient {
   private readonly reporter = new WhereReporter();
   /** What the socket sent in the last 10 s (the hub's rate window), to say what a rate close was made of. */
   private readonly recent: { at: number; type: string }[] = [];
+  /** The last messages heard (type and second into the socket), for the same line. */
+  private readonly heard: string[] = [];
+  private openedAt = 0;
   private peers: NearPeer[] = [];
   private leafValue: Extract<WorldMsg, { t: 'leaf' }>['leaf'] | null = null;
   private pending: Born | null = null;
@@ -391,8 +407,12 @@ export class LifeClient {
       onerror: null,
       send: (data) => {
         const type = typeOf(data);
-        bump(this.stats.sent, type);
         const now = this.now();
+        // A reconnect's burst (hello, 8 pings, spawn, a promote) plus the periodic reports can pass
+        // the hub's 20 messages in 10 s, as 200 clients on one machine do now and then; a page's own
+        // sends are far sparser. The periodic reports are repeated anyway, so near the cap they wait.
+        if (PERIODIC.has(type) && this.recentCount(now) >= WINDOW_SOFT_CAP) return;
+        bump(this.stats.sent, type);
         this.recent.push({ at: now, type });
         while (this.recent.length > 0 && (this.recent[0]?.at ?? now) < now - 10_000)
           this.recent.shift();
@@ -400,19 +420,37 @@ export class LifeClient {
       },
       close: () => raw.close(),
     };
-    raw.onopen = () => s.onopen?.();
+    raw.onopen = () => {
+      this.openedAt = this.now();
+      this.heard.length = 0;
+      s.onopen?.();
+    };
     raw.onerror = () => s.onerror?.();
     raw.onmessage = (ev) => {
-      bump(this.stats.received, typeOf(ev.data));
+      const type = typeOf(ev.data);
+      bump(this.stats.received, type);
+      if (type !== 'pong' && type !== 'near') {
+        this.heard.push(`${type}@${Math.round((this.now() - this.openedAt) / 1000)}`);
+        if (this.heard.length > 8) this.heard.shift();
+      }
       s.onmessage?.(ev);
     };
     raw.onclose = (ev) => {
       if (!this.stopped && this.hub !== null) bump(this.stats.closes, String(ev.code));
       if (!this.stopped && this.hub !== null && ev.code === 4003)
-        this.errors.push(this.lastWindow());
+        this.errors.push(
+          `${this.lastWindow()} (${(ev as { reason?: string }).reason ?? 'no reason'})`,
+        );
       s.onclose?.(ev);
     };
     return s;
+  }
+
+  /** What the hub's rate window counts among the last 10 s of sends (its inputs and signals have windows of their own). */
+  private recentCount(now: number): number {
+    return this.recent.filter(
+      (m) => m.at >= now - 10_000 && m.type !== 'input' && m.type !== 'signal',
+    ).length;
   }
 
   /** The last 10 s of sends by type, for the failure line of a rate close. */
@@ -420,10 +458,15 @@ export class LifeClient {
     const from = this.now() - 10_000;
     const counts: Record<string, number> = {};
     for (const m of this.recent) if (m.at >= from) bump(counts, m.type);
+    const fight = this.fight
+      ? `fight since ${Math.round((this.now() - this.fight.at) / 1000)} s`
+      : 'no fight';
     return `rate close after ${Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
       .map(([k, n]) => `${k} ${n}`)
-      .join(', ')}`;
+      .join(
+        ', ',
+      )}; ${fight}, now ${Math.round((this.now() - this.openedAt) / 1000)} s into the socket, last heard ${this.heard.join(' ')}`;
   }
 
   // ---- messages ----
@@ -498,6 +541,21 @@ export class LifeClient {
       this.huntUntil = 0;
       this.opts.bus.hunt(this.identity.playerId, null);
     } else if (m.t === 'enc-end') {
+      // The page takes its creature's state from the fight's end (`app-encounter.ts`): what the
+      // fight cost or paid, and where it left it. Without it the creature goes on with the
+      // state it had going in, and its next report claims more than the settlement holds.
+      const mine = m.fighters.find((f) => f.player === this.identity?.playerId);
+      const swim = this.swim;
+      if (mine && swim?.me.alive && mine.outcome !== 'killed' && mine.outcome !== 'died') {
+        swim.me.biomass = mine.biomass;
+        swim.me.energy = mine.energy;
+        swim.me.health = mine.health;
+        swim.me.x = mine.x;
+        swim.me.y = mine.y;
+        swim.me.vx = mine.vx;
+        swim.me.vy = mine.vy;
+        swim.me.heading = mine.heading;
+      }
       this.fight = null;
       this.fightEndedAt = this.now();
       this.huntAgainAt = this.now() + AFTER_FIGHT_MS;
@@ -784,7 +842,11 @@ export class LifeClient {
   /** Signs the own snapshot onto the bus every 200 ms while someone could be near. */
   private sign(t: number, swim: Swimmer): void {
     if (t < this.nextSnapAt || this.peers.length === 0) return;
-    this.nextSnapAt = t + SNAP_MS;
+    // A fight's lock-in needs snapshots a few ticks old, so while anyone hunts every client signs
+    // 5 times a second. Otherwise a snapshot only shows who is ready to court: once a second. At 200
+    // clients in one process, 1,000 signatures a second kept the loops seconds late, and a page that
+    // reports 2 s late reads as growing too fast (M14 T14e).
+    this.nextSnapAt = t + (this.opts.bus.hunters(t).length > 0 ? SNAP_MS : IDLE_SNAP_MS);
     const own = this.signedNow(swim);
     if (own) this.opts.bus.post((this.identity as Identity).playerId, own.signed, own.snap, t);
   }
@@ -895,7 +957,14 @@ export class LifeClient {
     const hub = this.hub;
     if (!fight || !hub || !this.scripted) return;
     const due = Math.floor((t - fight.at) / FRAME_MS) + 2;
-    for (let f = Math.max(0, fight.sentTo + 1); f <= due && f < fight.sentTo + 4; f++) {
+    // A page samples its input at each frame's time. A client whose loop was starved for seconds
+    // (200 of them share one thread) doesn't send the frames it missed: the referee has finalized
+    // them, and a burst of them after the fight ended would pass the hub's rate window. And no
+    // input names a frame past the protocol's last (`ENC_MAX_FRAME`, 100 s of fight): the hub
+    // cannot parse it and counts it as an ordinary message, 10 a second until the fight ends.
+    const last = Math.min(due, ENC_MAX_FRAME);
+    fight.sentTo = Math.max(fight.sentTo, last - STALE_FRAMES);
+    for (let f = Math.max(0, fight.sentTo + 1); f <= last && f < fight.sentTo + 4; f++) {
       const i = encodeFrameInput({
         steer: Math.floor(this.rng.next() * 256),
         throttle: 15,
