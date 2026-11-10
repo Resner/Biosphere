@@ -3,6 +3,7 @@ import {
   checksOf,
   cpuPerMessage,
   type FullSeries,
+  failingReports,
   failures,
   type HubSample,
   modelOf,
@@ -256,5 +257,14 @@ describe('the report', () => {
     expect(text).toContain('| encounters | 30 | 60.0% |');
     expect(text.indexOf('| encounters |')).toBeLessThan(text.indexOf('| checkpoints |'));
     expect(reportOf(healthy())).not.toContain('Rows written, by table');
+  });
+});
+
+describe('failingReports', () => {
+  it('lets a close seen while a message was handled go: a page reload, not a flag', () => {
+    const reload =
+      'closed in a message: locked false, ended never (hub 1794349476137), locks , ping@76137';
+    const flag = JSON.stringify({ kind: 'growth-too-fast', now: 5, report: {}, before: {} });
+    expect(failingReports([reload, flag, reload])).toEqual([flag]);
   });
 });

@@ -616,13 +616,13 @@ Each part is also checked alone:
 
 ## Rubric
 
-- [x] A first-time player who never opens the menu learns to swim, eat, dash, avoid hazards and bigger creatures, attack, court and become its child from the guide alone, one line at a time (evidence: `m14-guide`'s screenshots and `state().guide` at each step).
-- [x] The help panel answers "how do I…" for every core action and lists every control, readable at 960 and 390 px wide, without stopping the creature (evidence: `m14-help`'s screenshots, the key-map test).
-- [x] No cue relies on colour alone, and the HUD, outlines, pings and rarity stay distinguishable under protanopia, deuteranopia and tritanopia (evidence: `m14-colour`'s simulated screenshots, the inventory's tests).
-- [x] A reopened tab shows where its player stands on its first screen: the waiting egg, the egg beside the parent, the child, the ancestor or the death screen, never a second Hatch (evidence: `m14-interrupt`'s screenshots).
-- [x] Firefox and WebKit draw the game as Chromium does (evidence: `m14-smoke`'s screenshots per engine, non-blank, within the low preset's budgets).
+- [ ] A first-time player who never opens the menu learns to swim, eat, dash, avoid hazards and bigger creatures, attack, court and become its child from the guide alone, one line at a time (evidence: `m14-guide`'s screenshots and `state().guide` at each step).
+- [ ] The help panel answers "how do I…" for every core action and lists every control, readable at 960 and 390 px wide, without stopping the creature (evidence: `m14-help`'s screenshots, the key-map test).
+- [ ] No cue relies on colour alone, and the HUD, outlines, pings and rarity stay distinguishable under protanopia, deuteranopia and tritanopia (evidence: `m14-colour`'s simulated screenshots, the inventory's tests).
+- [ ] A reopened tab shows where its player stands on its first screen: the waiting egg, the egg beside the parent, the child, the ancestor or the death screen, never a second Hatch (evidence: `m14-interrupt`'s screenshots).
+- [ ] Firefox and WebKit draw the game as Chromium does (evidence: `m14-smoke`'s screenshots per engine, non-blank, within the low preset's budgets).
 - [x] An hour of play leaves the authority and the pages level: memory, CPU per message, heap, GPU resources and frame times (evidence: `docs/perf/soak.md`, run 42881024170's hour, every check passes).
-- [x] Different builds succeed: at least 3 archetypes in the top 10% of lives, none above half (evidence: `docs/perf/balance.md`).
+- [ ] Different builds succeed: at least 3 archetypes in the top 10% of lives, none above half (evidence: `docs/perf/balance.md`).
 - [ ] (owner) About 200 players play for an hour from the Pages link: nobody waits in line, nobody loses a creature to a reload or a closed tab, and `ops:watch` shows per-player costs and a relay share within a factor of two of `docs/CAPACITY.md`'s assumptions (paste its summary, or run `npm run report:capacity -- --metrics <file>`).
 - [ ] (owner) The game plays in real Safari (the latest two versions, on a Mac) and in Edge (on Windows): hatch, swim, meet a friend on Chrome, mate and fight.
 - [ ] (owner) A newcomer who has never seen the game knows what to do within five minutes, from the guide and the help.
