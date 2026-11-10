@@ -94,16 +94,23 @@ async function charged(browser: Browser): Promise<void> {
   expect(after.ticks).toBe(12);
   expect(after.phase).toBe('stirring');
   await waitPlaying(page, { paced: true });
-  await page.waitForFunction(() => window.__bs?.state().egg.card.shown, undefined, {
-    timeout: 10_000,
-  });
+  // The card stays up for 3 s: take its tier in the frame that shows it, not from a later read.
+  const shownCard = await page.waitForFunction(
+    () => {
+      const card = window.__bs?.state().egg.card;
+      return card?.shown ? { tier: card.tier } : false;
+    },
+    undefined,
+    { timeout: 10_000 },
+  );
+  const { tier: cardTier } = (await shownCard.jsonValue()) as { tier: string | null };
   const s = await state(page);
   expect(s.egg.crackedBy).toBe('player');
   expect(s.egg.charge).toBe(1);
   // The show was charged, the child was not: the hint and the card show the recorded child's tier.
   const recorded = await page.evaluate(() => (window.__bs as BsHook).life.recompute());
   expect(s.player?.genomeHash).toBe(recorded?.genomeHash);
-  expect(s.egg.card.tier).toBe(s.player?.rarity);
+  expect(cardTier).toBe(s.player?.rarity);
   expect(after.hint === 'cycling' || after.hint === s.player?.rarity).toBe(true);
   expect(s.egg.hint).toBe(s.player?.rarity);
   // A full charge's burst adds its shockwave.

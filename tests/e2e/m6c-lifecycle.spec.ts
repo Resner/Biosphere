@@ -126,13 +126,20 @@ test('renewal notice, charged reveal, a dive with UV hits and the gauge, mate an
     dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter' }));
   });
   await waitPlaying(a, { paced: true });
-  await a.waitForFunction(() => window.__bs?.state().egg.card.shown, undefined, {
-    timeout: 15_000,
-  });
+  // The card stays up for 3 s: take its tier in the frame that shows it, not from a later read.
+  const shownCard = await a.waitForFunction(
+    () => {
+      const card = window.__bs?.state().egg.card;
+      return card?.shown ? { tier: card.tier } : false;
+    },
+    undefined,
+    { timeout: 15_000 },
+  );
+  const { tier: cardTier } = (await shownCard.jsonValue()) as { tier: string | null };
   const hatched = await state(a);
   expect(hatched.egg.crackedBy).toBe('player');
   expect(hatched.egg.charge).toBe(1);
-  expect(hatched.egg.card.tier).toBe(hatched.player?.rarity);
+  expect(cardTier).toBe(hatched.player?.rarity);
   expect((await info(a)).veil, 'the veil is gone once the shell has burst').toBeLessThan(0.35);
   expect(hatched.egg.phases).toEqual(['waiting', 'stirring', 'cracking', 'revealed']);
   await a.screenshot({ path: 'test-results/m6c-lifecycle-reveal.png' });
