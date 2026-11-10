@@ -431,6 +431,7 @@ async function sampleHub(
   let read: { cpuMs: number; messages: number } | null = null;
   if (inconsistent) {
     const before = watch.now().cpuMs;
+    // The meter read right after the process: the read's CPU and messages are taken at the same moments.
     const at = taken(await getJson<MetricsAnswer>(port, '/v1/e2e/metrics'));
     inconsistencies = await getJson<{ kind: string; detail?: string }[]>(
       port,

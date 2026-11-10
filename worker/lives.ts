@@ -236,25 +236,7 @@ export function progress(
   for (const kind of newFlags) {
     hub.ledger.audit.raise(kind, { owner: session.playerId, creature: life.creature, t: now });
     if (hub.flagLog && hub.flagLog.length < 60)
-      hub.flagLog.push(
-        JSON.stringify({
-          kind,
-          now,
-          report: { n: msg.n, ticks: msg.ticks, biomass: msg.biomass },
-          before: {
-            t: current.t,
-            startT: current.startT,
-            boundT: current.boundT,
-            boundMs: current.boundMs,
-            activeMs: current.activeMs,
-            ticks: current.ticks,
-            boundBiomass: current.boundBiomass,
-            biomass: current.biomass,
-            n: current.n,
-          },
-          creditedMs: life.activeMs - current.activeMs,
-        }),
-      );
+      hub.flagLog.push(JSON.stringify({ kind, now, report: msg, before: current }));
   }
   let next = checkpointDue(life) ? checkpoint(hub, life, session.playerId) : life;
   ack(ws, msg.n, next);

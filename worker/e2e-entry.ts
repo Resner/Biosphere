@@ -148,7 +148,7 @@ export class Authority extends LiveAuthority {
   }
 
   /** The first reports that raised a creature flag, in words for a soak's failure lines (M14 T14e). */
-  override flagLog: string[] = [];
+  flagLog: string[] = [];
 
   flagDetails(): string[] {
     return [...this.flagLog];

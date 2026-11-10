@@ -959,11 +959,11 @@ export class LifeClient {
     const due = Math.floor((t - fight.at) / FRAME_MS) + 2;
     // A page samples its input at each frame's time. A client whose loop was starved for seconds
     // (200 of them share one thread) doesn't send the frames it missed: the referee has finalized
-    // them, and a burst of them after the fight ended would pass the hub's rate window.
-    fight.sentTo = Math.max(fight.sentTo, Math.min(due, ENC_MAX_FRAME) - STALE_FRAMES);
-    // No input names a frame past the protocol's last (`ENC_MAX_FRAME`, 100 s of fight): the hub
+    // them, and a burst of them after the fight ended would pass the hub's rate window. And no
+    // input names a frame past the protocol's last (`ENC_MAX_FRAME`, 100 s of fight): the hub
     // cannot parse it and counts it as an ordinary message, 10 a second until the fight ends.
     const last = Math.min(due, ENC_MAX_FRAME);
+    fight.sentTo = Math.max(fight.sentTo, last - STALE_FRAMES);
     for (let f = Math.max(0, fight.sentTo + 1); f <= last && f < fight.sentTo + 4; f++) {
       const i = encodeFrameInput({
         steer: Math.floor(this.rng.next() * 256),
