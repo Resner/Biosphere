@@ -23,6 +23,7 @@ function healthy(): Soak {
       minute,
       cpuMs: minute * 6_000,
       rssBytes: 400_000_000 + (minute % 3) * 1_000_000,
+      heapBytes: 14_000_000 + (minute % 3) * 200_000,
       messages: minute * 12_000,
       seated: 200,
       queued: 0,
@@ -85,11 +86,18 @@ describe('the soak checks', () => {
     expect(failures(healthy())).toEqual([]);
   });
 
-  it('fail a rising memory slope', () => {
+  it("fail an object heap that rises, and only the object's heap", () => {
     const run = healthy();
-    for (const s of run.full?.hub ?? []) s.rssBytes = 400_000_000 + s.minute * 1_000_000;
+    for (const s of run.full?.hub ?? []) s.heapBytes = 14_000_000 + s.minute * 1_000_000;
     // 60 MB an hour against a limit of 20.
-    expect(failed(run)).toEqual(['authority memory level']);
+    expect(failed(run)).toEqual(['authority heap level']);
+    // The processes' resident memory holds wrangler's proxy and V8's garbage: shown, not judged.
+    const runtime = healthy();
+    for (const s of runtime.full?.hub ?? []) s.rssBytes = 400_000_000 + s.minute * 5_000_000;
+    expect(failed(runtime)).toEqual([]);
+    const blind = healthy();
+    for (const s of blind.full?.hub ?? []) s.heapBytes = null;
+    expect(failed(blind)).toEqual(['authority heap level']);
   });
 
   it('fail CPU per message that grows', () => {
@@ -182,6 +190,18 @@ describe('the soak checks', () => {
     expect(failed(run)).toEqual(['bundles verify']);
   });
 
+  it('read the heap slope of a shorter run from minute 10, after the join', () => {
+    const run = healthy();
+    run.config.minutes = 30;
+    const hub = (run.full?.hub ?? []).filter((s) => s.minute <= 30);
+    if (run.full) run.full.hub = hub;
+    // The crowd joins over 5 minutes and the hub settles into it by minute 10: a step there is no leak.
+    for (const s of hub) s.heapBytes = s.minute <= 6 ? 4_000_000 : 14_000_000;
+    expect(failed(run)).toEqual([]);
+    for (const s of hub) if (s.minute >= 10) s.heapBytes = 14_000_000 + s.minute * 1_000_000;
+    expect(failed(run)).toEqual(['authority heap level']);
+  });
+
   it('scale their windows to a shorter run', () => {
     const run = healthy();
     run.config.minutes = 30;
@@ -208,7 +228,7 @@ describe('the report', () => {
   it('names every check and the result', () => {
     const text = reportOf(healthy());
     expect(text).toContain('# Soak report');
-    expect(text).toContain('authority memory level');
+    expect(text).toContain('authority heap level');
     expect(text).toContain('Result: pass');
     const bad = healthy();
     bad.entered = 1;

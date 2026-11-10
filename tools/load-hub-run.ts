@@ -43,7 +43,7 @@ const positive = (r: Record<string, number>): Record<string, number> =>
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-interface Proc {
+export interface Proc {
   pid: number;
   ppid: number;
   comm: string;
@@ -85,7 +85,7 @@ function processes(): Proc[] {
 }
 
 /** The `workerd` processes under `root`: the object's runtime. */
-function workerd(root: number): Proc[] {
+export function workerd(root: number): Proc[] {
   const all = processes();
   const under = new Set([root]);
   for (let grew = true; grew; ) {

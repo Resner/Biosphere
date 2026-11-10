@@ -15,7 +15,8 @@ describe('the recorded soak', () => {
     const failed = checksOf(recorded)
       .filter((c) => !c.ok)
       .map((c) => c.name);
-    expect(failed).toContain('authority memory level');
+    // It was recorded before the object's heap was sampled (M14 T14c), so the heap check can't hold.
+    expect(failed).toContain('authority heap level');
     expect(failed).toContain('rows written per player-hour');
     expect(failed).toContain('no socket closed for its rate');
     // Every page check held: heap, resources and frame times stayed level over the hour.
