@@ -401,23 +401,33 @@ async function sampleHub(
   // The process and the object's heap first: the consistency check below holds the hub's thread.
   const proc = watch.now();
   const heapBytes = await heap.now();
-  const [metrics, audit, inconsistencies] = await Promise.all([
+  const [metrics, audit] = await Promise.all([
     getJson<MetricsAnswer>(port, '/v1/e2e/metrics'),
     getJson<{ day: Record<string, number> } | null>(port, '/v1/e2e/audit'),
-    inconsistent
-      ? getJson<{ kind: string; detail?: string }[]>(
-          port,
-          '/v1/e2e/consistency',
-          CONSISTENT_READ_MS,
-        )
-      : Promise.resolve(null),
   ]);
+  const taken = (m: MetricsAnswer) => Object.values(m.today.byType).reduce((n, v) => n + v, 0);
+  // The read apart, with the process and the meter before and after it, so the CPU per message
+  // check can leave its cost out (it grows with the creatures).
+  let inconsistencies: { kind: string; detail?: string }[] | null = null;
+  let read: { cpuMs: number; messages: number } | null = null;
+  if (inconsistent) {
+    const before = watch.now().cpuMs;
+    const at = taken(await getJson<MetricsAnswer>(port, '/v1/e2e/metrics'));
+    inconsistencies = await getJson<{ kind: string; detail?: string }[]>(
+      port,
+      '/v1/e2e/consistency',
+      CONSISTENT_READ_MS,
+    );
+    const after = watch.now().cpuMs;
+    const end = taken(await getJson<MetricsAnswer>(port, '/v1/e2e/metrics'));
+    read = before === null || after === null ? null : { cpuMs: after - before, messages: end - at };
+  }
   return {
     minute,
     cpuMs: proc.cpuMs,
     rssBytes: proc.rssBytes,
     heapBytes,
-    messages: Object.values(metrics.today.byType).reduce((n, v) => n + v, 0),
+    messages: taken(metrics),
     seated: metrics.live.seated,
     queued: metrics.live.queued,
     consistent: inconsistencies
@@ -432,6 +442,7 @@ async function sampleHub(
         }
       : null,
     flags: Object.fromEntries(Object.entries(audit?.day ?? {}).filter(([, n]) => n > 0)),
+    read,
   };
 }
 

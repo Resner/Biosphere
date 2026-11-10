@@ -222,6 +222,18 @@ describe('the helpers', () => {
     expect(cpuPerMessage(hub, 10, 20)).toBeCloseTo(0.5);
     expect(cpuPerMessage([], 10, 20)).toBeNull();
   });
+
+  it('leave the consistency reads out of CPU per message', () => {
+    const hub = healthy().full?.hub ?? [];
+    // A read after minute 15 spent 80 s of CPU (and 100 messages) that the next interval holds.
+    for (const s of hub) {
+      if (s.minute > 15) s.cpuMs = (s.cpuMs ?? 0) + 80_000;
+      if (s.minute > 15) s.messages += 100;
+      if (s.minute === 15) s.read = { cpuMs: 80_000, messages: 100 };
+    }
+    expect(cpuPerMessage(hub, 10, 20)).toBeCloseTo(0.5);
+    expect(cpuPerMessage(hub, 16, 20)).toBeCloseTo(0.5);
+  });
 });
 
 describe('the report', () => {

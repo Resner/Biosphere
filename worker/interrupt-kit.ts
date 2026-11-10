@@ -132,6 +132,35 @@ type Row = Record<string, SqlStorageValue>;
  * outlives its tests, whose kits wipe tables between them.
  */
 export function consistent(hub: Hub, players?: readonly string[]): Inconsistency[] {
+  const out = stateProblems(hub);
+  const scope = players ? new Set(players) : null;
+  for (const id of creaturesToVerify(hub, scope)) verifyCreature(hub, id, out);
+  return scope ? out.filter((x) => x.player === undefined || scope.has(x.player)) : out;
+}
+
+/**
+ * `consistent(hub)` that lets the object serve its messages between creatures (M14 T14e): the
+ * verification of every chain held the hub's thread for over a minute in a soak's hour, and the
+ * messages queued behind it reached the rate window all at once. `slice` runs one creature's
+ * verification (the E2E entry keeps the meter's rows read out of it); `pause` yields to the event
+ * loop every `every` creatures.
+ */
+export async function consistentYielding(
+  hub: Hub,
+  slice: <T>(work: () => T) => T,
+  pause: () => Promise<void>,
+  every = 4,
+): Promise<Inconsistency[]> {
+  const out = slice(() => stateProblems(hub));
+  const ids = slice(() => creaturesToVerify(hub, null));
+  for (const [i, id] of ids.entries()) {
+    slice(() => verifyCreature(hub, id, out));
+    if ((i + 1) % every === 0) await pause();
+  }
+  return out;
+}
+
+function stateProblems(hub: Hub): Inconsistency[] {
   const out: Inconsistency[] = [];
   const rows = (query: string, ...b: SqlStorageValue[]): Row[] =>
     hub.sql.exec<Row>(query, ...b).toArray();
@@ -139,23 +168,29 @@ export function consistent(hub: Hub, players?: readonly string[]): Inconsistency
   commitments(rows, out);
   fights(hub, rows, out);
   sessions(hub, out);
-  const scope = players ? new Set(players) : null;
-  const ids = rows(
-    scope
-      ? `SELECT id, owner FROM creatures`
-      : "SELECT id, owner FROM creatures WHERE status IN ('active', 'pending')",
-  ).flatMap((r) => (!scope || scope.has(String(r.owner)) ? [String(r.id)] : []));
-  for (const id of ids) {
-    const bundle = proofBundle(hub, id, hub.clock.now());
-    if (!bundle) {
-      out.push({ kind: 'verify', creature: id, detail: 'no proof bundle' });
-      continue;
-    }
-    for (const p of verifyLineage(bundle).problems) {
-      out.push({ kind: 'verify', creature: id, detail: `${p.family}:${p.code} at ${p.seq}` });
-    }
+  return out;
+}
+
+function creaturesToVerify(hub: Hub, scope: Set<string> | null): string[] {
+  return hub.sql
+    .exec<Row>(
+      scope
+        ? `SELECT id, owner FROM creatures`
+        : "SELECT id, owner FROM creatures WHERE status IN ('active', 'pending')",
+    )
+    .toArray()
+    .flatMap((r) => (!scope || scope.has(String(r.owner)) ? [String(r.id)] : []));
+}
+
+function verifyCreature(hub: Hub, id: string, out: Inconsistency[]): void {
+  const bundle = proofBundle(hub, id, hub.clock.now());
+  if (!bundle) {
+    out.push({ kind: 'verify', creature: id, detail: 'no proof bundle' });
+    return;
   }
-  return scope ? out.filter((x) => x.player === undefined || scope.has(x.player)) : out;
+  for (const p of verifyLineage(bundle).problems) {
+    out.push({ kind: 'verify', creature: id, detail: `${p.family}:${p.code} at ${p.seq}` });
+  }
 }
 
 type Rows = (query: string, ...b: SqlStorageValue[]) => Row[];

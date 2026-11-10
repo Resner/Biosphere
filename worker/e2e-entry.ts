@@ -6,7 +6,7 @@ import type { BeaconSource } from './beacons';
 import { type WitnessView, witnessView } from './duty';
 import { fixtureSource } from './fixture-beacons';
 import live from './index';
-import { consistent, type Inconsistency } from './interrupt-kit';
+import { consistentYielding, type Inconsistency } from './interrupt-kit';
 import { HATCH_BUCKET } from './ledger-types';
 import { recoverFights } from './recover';
 import { type Session, socketsOf } from './socket';
@@ -188,17 +188,21 @@ export class Authority extends LiveAuthority {
   }
 
   /** The invariants every interrupted transaction must leave, for a scenario or a soak to read (M14 T13); empty when they hold. */
-  consistency(): Inconsistency[] {
+  async consistency(): Promise<Inconsistency[]> {
     // The check reads every creature's chain: it is the test's own look, and must not spend the plan's
-    // rows-read allowance that the soak measures (and whose 90% guard closes the line). It never awaits,
-    // so nothing else counts rows while it runs.
-    const before = { ...this.rowCount };
-    try {
-      return consistent(this);
-    } finally {
-      this.rowCount.read = before.read;
-      this.rowCount.written = before.written;
-    }
+    // rows-read allowance that the soak measures (and whose 90% guard closes the line). Each slice is
+    // synchronous, so nothing else counts rows while it runs; between slices the object serves its
+    // messages, as a stall of over a minute made a soak's clients look like they flooded it.
+    const quiet = <T>(work: () => T): T => {
+      const before = { read: this.rowCount.read, written: this.rowCount.written };
+      try {
+        return work();
+      } finally {
+        this.rowCount.read = before.read;
+        this.rowCount.written = before.written;
+      }
+    };
+    return consistentYielding(this, quiet, () => new Promise((r) => setTimeout(r, 0)));
   }
 
   /** An event's witnesses for a scenario to wait on (M10 T4); null without a witness commitment. */
