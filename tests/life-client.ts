@@ -57,6 +57,8 @@ const CATCH_UP_TICKS = 12;
 /** Periodic reports a client holds back near the hub's 20 messages per 10 s (`RATE_MAX_MESSAGES`), and the count from which it does. */
 const PERIODIC: ReadonlySet<string> = new Set(['where', 'mate-check']);
 const WINDOW_SOFT_CAP = 15;
+/** Frames behind the clock after which a scripted fighter skips ahead instead of sending the inputs it missed. */
+const STALE_FRAMES = 4;
 const SNAP_MS = 200;
 const FIRST_REPORT_TICKS = 5 * TICK_HZ;
 const REPORT_EVERY_TICKS = 30 * TICK_HZ;
@@ -909,6 +911,10 @@ export class LifeClient {
     const hub = this.hub;
     if (!fight || !hub || !this.scripted) return;
     const due = Math.floor((t - fight.at) / FRAME_MS) + 2;
+    // A page samples its input at each frame's time. A client whose loop was starved for seconds
+    // (200 of them share one thread) doesn't send the frames it missed: the referee has finalized
+    // them, and a burst of them after the fight ended would pass the hub's rate window.
+    fight.sentTo = Math.max(fight.sentTo, due - STALE_FRAMES);
     for (let f = Math.max(0, fight.sentTo + 1); f <= due && f < fight.sentTo + 4; f++) {
       const i = encodeFrameInput({
         steer: Math.floor(this.rng.next() * 256),

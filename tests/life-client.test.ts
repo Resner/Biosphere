@@ -12,6 +12,7 @@ import {
   type SignedSnap,
   type Snapshot,
 } from '../src/net/protocol';
+import { FRAME_MS } from '../src/net/referee';
 import { seedFromString } from '../src/sim/prng';
 import { RULES, TICK_HZ } from '../src/sim/rules';
 import { LifeClient, lifeSeedOf, SnapBus } from './life-client';
@@ -302,6 +303,25 @@ describe('the life client', () => {
     await vi.advanceTimersByTimeAsync(10_001);
     socket.send(JSON.stringify({ t: 'where', x: 3, y: 3, r: 10, aoi: 233 }));
     expect(types().filter((t) => t === 'where')).toHaveLength(2);
+  });
+
+  it('does not send the inputs a starved loop missed', () => {
+    const { client } = make({ scripted: true });
+    const sent: ClientMsg[] = [];
+    const inner = client as unknown as {
+      fight: { enc: string; at: number; sentTo: number };
+      hub: { send(m: ClientMsg): void };
+      fightInputs(t: number): void;
+    };
+    inner.hub = { send: (m) => sent.push(m) };
+    inner.fight = { enc: 'e'.repeat(64), at: 0, sentTo: 3 };
+    // 20 s later (about 200 frames behind): only the frames near the clock go out.
+    inner.fightInputs(20_000);
+    inner.fightInputs(20_000);
+    expect(sent.length).toBeGreaterThan(0);
+    expect(sent.length).toBeLessThanOrEqual(8);
+    const frames = sent.map((m) => (m as Extract<ClientMsg, { t: 'input' }>).f);
+    expect(Math.min(...frames)).toBeGreaterThan(Math.floor(20_000 / FRAME_MS) - 8);
   });
 
   it('answers a lock-ask with its own fresh snapshot', async () => {
