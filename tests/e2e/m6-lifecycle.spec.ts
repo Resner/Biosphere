@@ -118,6 +118,7 @@ test('hatch, grow, zones, find, wheel, mate, promote and a death in the abyss @s
       .poll(
         async () => {
           await topUp(a);
+          await a.evaluate(() => (window.__bs as BsHook).debug?.setHealth(Number.MAX_SAFE_INTEGER));
           await stayIn(a, zone);
           return (await cues(a))[sound] ?? 0;
         },
@@ -144,6 +145,9 @@ test('hatch, grow, zones, find, wheel, mate, promote and a death in the abyss @s
       ([kind, inZone]) => {
         const bs = window.__bs as BsHook;
         bs.debug?.setEnergy(Number.MAX_SAFE_INTEGER);
+        // Full health as well: a slow runner plays this wait for minutes and the zone's own hits
+        // would kill the body (a dead A shows the death screen, whose shake is never the zone's).
+        bs.debug?.setHealth(Number.MAX_SAFE_INTEGER);
         // The cursor and the currents carry the body about while the world runs: out of the zone
         // its hazard stops, and no further hit would come.
         if (bs.state().zone !== inZone) bs.debug?.setZone(inZone);
