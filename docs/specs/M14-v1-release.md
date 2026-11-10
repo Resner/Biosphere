@@ -564,7 +564,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
 
 ### Closing
 
-- [ ] T18 The v1.0 scenario, the playtest kit and the documentation sync
+- [x] T18 The v1.0 scenario, the playtest kit and the documentation sync
   - Steps:
     1. **`m14-lifecycle.spec.ts`** (`@slow`, hub 8844, `MATING_SCALE` 0.01, Chromium), the v1.0 story in one scenario:
        - a fresh browser A: the title offers "How to play"; the help opens on `?` and closes;
@@ -589,6 +589,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
     - `m14-lifecycle` passes 3 times in a row on one hub (`--repeat-each=3 --workers=1`).
     - Every exit criterion maps to a named test or report (the table below), and `tools/coverage.test.ts` passes.
     - Each PR E2E part stays under 5 minutes; the long scenarios are `@slow`.
+  - Done: `m14-lifecycle` (`@slow`, hub 8844) passes 3 runs in a row on one hub; `RELEASED[13]` pins the rules-13 entry; DESIGN.md (rules 13, no milestone marks), TESTING.md, README.md and the draft below are synced. `squareUp` is `stage`'s second half, shared with the spec. Gotcha: a local hub keeps its day's flags in `.wrangler/e2e-state-m14-lifecycle`; delete it after an aborted run or `hubIsWhole` fails on old flags.
 
 ## Exit criteria → evidence
 
@@ -644,3 +645,43 @@ Each part is also checked alone:
   - Goldens: T1 regenerates them for rules 13, T11 for its values, T2 if the rulebook moves; each reruns `npm run goldens:manifest`.
   - `protocol-defs.ts`: T1 bumps to 14, T3 adds `life.mating` under 14.
 - **Large tasks** (T3, T6, T10, T13, T14) may overrun one session. Every run pushes its work in progress (ADR 0042), and a task that fails across three runs is split (the `next` skill).
+
+## Release notes and the Playtest issue (draft)
+
+The milestone close posts these (`Playtest: v1.0.0`, and the release notes in the release's body). Protocol 14, rules 13, world epoch 5.
+
+### Release notes
+
+**Biosphere v1.0.0: the permanent world.**
+
+- **Lineages are permanent.** This is the last world renewal: from v1.0.0 a creature's chain is never reset, and a later rules change keeps the older rules' code and goldens, so every card stays verifiable. Creatures from before this release are gone with the last renewal.
+- **A guide and a help panel.** A newcomer is told to swim, eat, dash, keep clear of hazards and bigger creatures, attack, court and become their child, one line at a time and once each; `?` opens the full help with every control, readable on a phone.
+- **Colour never alone.** HUD, outlines, pings and rarity read without telling red from green or blue from yellow.
+- **Four browsers.** Chrome, Edge, Firefox and Safari draw and play the game, with the same results in every engine (cross-engine goldens); a browser without WebGL2 or module workers gets a plain page that says why.
+- **Room for a crowd.** The authority seats players only while everyone seated could play two more hours inside the day's allowances; a one-hour soak with 200 players and two pages stays level in memory, CPU, heap, GPU and frame times.
+- **Nothing lost to a closed tab.** A tab that crashes or closes during a hatch, a mating, a promotion, a death or a recovery-code import opens on where its player stands: the waiting egg, the egg beside the parent, the child, the ancestor or the death screen, never a second Hatch.
+- **Balance.** A simulated season shows at least three body archetypes among the top 10% of lives and none above half.
+
+### `Playtest: v1.0.0` (draft body)
+
+Play it: https://resner.github.io/Biosphere/ . Creatures from before the renewal are gone; hatch a new one. This is the milestone's gate: reply here when you have tried what follows (or close the issue) and the factory moves on.
+
+**The 200-player hour** (the runbook is `docs/OPERATIONS.md`, "The 200-player playtest"):
+- Pick a start hour with most of the UTC day left, switch to the paid plan for the day if you like (`CLOUDFLARE_PLAN`, then re-run Release), and tell players the time in UTC.
+- Invite players with the link; start `npm run ops:watch -- --url <authority>` ten minutes ahead and keep its output.
+- Afterwards paste back: the peak `seated`, the longest line and its waits, the share of the day's allowances spent, the flags by kind, and anything players reported; or run `npm run report:capacity -- --metrics <file>` and paste its summary.
+
+**In each browser** (Chrome, Edge on Windows, Firefox, Safari on a Mac): hatch, swim, eat, dash, meet a friend on Chrome, mate and fight; the title says what is missing if something is.
+
+**The `(owner)` lines of the rubric:**
+- A newcomer who has never seen the game knows what to do within five minutes, from the guide and the help.
+- Different builds win in play: no one body dominates the water.
+- 60 fps on a mid-range laptop at the default preset in each of the four browsers.
+- About 200 players play for an hour: nobody waits in line, nobody loses a creature to a reload or a closed tab, and the per-player costs and relay share are within a factor of two of `docs/CAPACITY.md`.
+- Real Safari (the latest two versions, on a Mac) and Edge (on Windows) play as the others do.
+
+**Still open from earlier playtests:**
+- Playtest v0.10.0 (#379): a card link sent to a friend opens and verifies on their machine with your creatures offline; the card makes a creature feel worth showing off.
+- Playtest v0.11.0 (#418): a fight with a witness feels the same as one without, and witness duty goes unnoticed; playing with friends in the world feels like the pond did, other players appear and fade smoothly over real networks, and growing into a bigger tier feels like the world opens up.
+- M12 (v0.13.0): joining friends feels natural; riding the current is clear; thinning out in a busy spot reads as calmer water.
+- M13 (v0.14.0): `/v1/metrics` in a playtest shows per-player costs and a relay share within a factor of two of the capacity model, and the capacity summary is enough to decide between the free plan and paying.

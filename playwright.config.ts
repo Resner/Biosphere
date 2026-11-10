@@ -141,6 +141,8 @@ const m14MixedHubPort = 8841;
 const m14CapabilityHubPort = 8845;
 // The M14 interrupt spec (M14 T4, 8840, `@slow`): the page's kill matrix, with short matings and lives.
 const m14InterruptHubPort = 8840;
+// The M14 lifecycle spec (M14 T18, 8844, `@slow`): the v1.0 story in one scenario, with short matings.
+const m14LifecycleHubPort = 8844;
 // `--grep-invert` does not reach a project's dependencies, which would run the slow scenarios in the
 // PR gate; `test:e2e` sets this instead and every project skips them itself.
 // The post chain (M6 T2) makes software rendering several times slower, which starves specs that
@@ -503,6 +505,7 @@ export default defineConfig({
       ['m14-smoke', m14SmokeHubPort, ''],
       ['m14-mixed', m14MixedHubPort, ''],
       ['m14-interrupt', m14InterruptHubPort, '--var MATING_SCALE:0.01 --var LIFESPAN_SCALE:0.05'],
+      ['m14-lifecycle', m14LifecycleHubPort, '--var MATING_SCALE:0.01'],
       ['m11-handoff', m11HandoffHubPort, '--var LEAF_MAX:2'],
       ['m11-cap', m11CapHubPort, ''],
       ['m11-relay', m11RelayHubPort, ''],

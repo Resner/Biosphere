@@ -27,8 +27,8 @@ describe('the frozen manifest', () => {
     ).toEqual([]);
   });
 
-  it('pins nothing until v1.0.0 is released (T18 pins rules 13)', () => {
-    expect(RELEASED).toEqual({});
+  it('pins rules 13, v1.0.0’s, to the hash of its manifest entry', () => {
+    expect(RELEASED).toEqual({ 13: entryHash(manifest['13'] ?? {}) });
   });
 
   it('fails when one byte of a golden file changes, or a golden file is added or removed', () => {

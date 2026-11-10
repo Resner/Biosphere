@@ -6,7 +6,15 @@
 
 In Biosphere you start as a single cell hatched from unique DNA, in one continuous body of water that you share with everyone else playing. You swim, eat, grow and try to survive. Every other creature you meet is another player, because there are no computer-controlled creatures. When two players mate, each gets their own offspring, whose body is grown from both parents' genes. When you die, you carry on as one of your descendants or ancestors, so over time you're playing a whole lineage rather than a single creature.
 
-The game runs peer to peer in the browser, rendered in WebGL with a look inspired by macro photography of plankton. A small serverless backend keeps lineages honest and verifiable. The game is still being built and released milestone by milestone, so what you can play today is an early version of the plan in [docs/ROADMAP.md](docs/ROADMAP.md).
+The game runs peer to peer in the browser, rendered in WebGL with a look inspired by macro photography of plankton. A small serverless backend keeps lineages honest and verifiable. **v1.0 is the permanent world**: lineages are never reset again, and every creature's card at `card.html?c=<id>` can be verified back to genesis by anyone ([docs/VERIFY.md](docs/VERIFY.md)). The plan it followed is in [docs/ROADMAP.md](docs/ROADMAP.md), and each brief requirement's status and evidence is in [docs/COVERAGE.md](docs/COVERAGE.md).
+
+### How to play
+
+- **Swim and eat:** steer with the mouse (or WASD) and dash with Space; swim into the glowing specks to eat and grow, and keep clear of what hurts you. The first-life guide tells you each thing once, and `?` opens the full help.
+- **Court and mate:** once grown up, find another player and press E beside them; if they accept you each get a child, and you become yours when you press H.
+- **Fight or flee:** press F beside a creature of your size to engage it; the fight is refereed, and the same on every screen.
+
+Biosphere plays in Chrome, Edge, Firefox and Safari (a current version, with WebGL2 and WebRTC); a browser that offers less says so on the title screen. The owner's runbook for a release or a crowd is [docs/OPERATIONS.md](docs/OPERATIONS.md).
 
 What makes this repository unusual is how it's built: Claude Code agents plan, write, test and release the game on their own, as described below.
 
@@ -44,7 +52,7 @@ When a factory PR merges, the scheduled task's GitHub trigger starts the next ru
 
 ### Releases and playtests
 
-A `VERSION` bump merged to `main` runs the full test suite and deploys the Worker and the game to GitHub Pages. It then tags the release, and the factory opens a `Playtest: v…` issue with what changed and what to try. Fun, feel and real-world networking are the owner's call. Milestones marked `gate` (M2, M5, M6, M7, M14) wait for the owner's reply before the factory moves on.
+A `VERSION` bump merged to `main` runs the full test suite and deploys the Worker and the game to GitHub Pages. It then tags the release, and the factory opens a `Playtest: v…` issue with what changed and what to try. Fun, feel and real-world networking are the owner's call. Milestones marked `gate` (M2, M5, M6, M6b, M6c, M7, M14) wait for the owner's reply before the factory moves on.
 
 ### Steering the factory
 
@@ -66,6 +74,8 @@ The repository is public, so only issues and comments from the owner's account s
 | [docs/decisions/](docs/decisions/) | Architecture and process decisions (ADRs) |
 | [docs/art/](docs/art/) | Art-direction references (never shipped) |
 | [docs/SETUP.md](docs/SETUP.md) | One-time GitHub, schedule and Cloudflare setup |
+| [docs/OPERATIONS.md](docs/OPERATIONS.md) | The owner's runbook: releases, plans, incidents, the playtest |
+| [docs/COVERAGE.md](docs/COVERAGE.md) | Every requirement of the brief with its status and evidence |
 | [CLAUDE.md](CLAUDE.md), [.claude/](.claude/) | Instructions, quality rules, skills and hooks for the agents |
 
 ## Development
