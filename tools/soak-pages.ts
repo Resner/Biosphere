@@ -238,6 +238,7 @@ export class SoakPages {
   private browser: Browser | null = null;
   private context: BrowserContext | null = null;
   private readonly drivers: SoakPage[] = [];
+  private reniced = false;
 
   constructor(private readonly opts: PagesOptions) {}
 
@@ -271,19 +272,26 @@ export class SoakPages {
         .split('\n')
         .map((l) => /^\s*(\d+)\s+(\d+)\s+(.*)$/.exec(l))
         .flatMap((m) => (m ? [{ pid: Number(m[1]), ppid: Number(m[2]), args: m[3] ?? '' }] : []));
-      // The browsers this process launched, and everything under them.
+      // The browsers under this process (a direct child, or one a launcher started), and everything under them.
+      const below = [process.pid];
+      for (let i = 0; i < below.length; i++)
+        for (const r of rows) if (r.ppid === below[i]) below.push(r.pid);
       const tree = rows
-        .filter((r) => r.ppid === process.pid && /chrom|headless_shell/i.test(r.args))
+        .filter((r) => below.includes(r.pid) && /chrom|headless_shell/i.test(r.args))
         .map((r) => r.pid);
       for (let i = 0; i < tree.length; i++)
-        for (const r of rows) if (r.ppid === tree[i]) tree.push(r.pid);
+        for (const r of rows) if (r.ppid === tree[i] && !tree.includes(r.pid)) tree.push(r.pid);
+      let set = 0;
       for (const pid of tree) {
         try {
           setPriority(pid, 10);
+          set++;
         } catch {
           // gone already
         }
       }
+      if (set > 0 && !this.reniced) this.opts.log(`${set} browser processes at nice 10`);
+      this.reniced ||= set > 0;
     } catch {
       // no `ps`: the pages keep their priority
     }
