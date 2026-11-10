@@ -54,6 +54,9 @@ const ORIGIN = 'http://localhost:5173';
 const LOOP_MS = 100;
 /** The most ticks one step plays to catch up with the pond clock; a bigger lag jumps. */
 const CATCH_UP_TICKS = 12;
+/** Periodic reports a client holds back near the hub's 20 messages per 10 s (`RATE_MAX_MESSAGES`), and the count from which it does. */
+const PERIODIC: ReadonlySet<string> = new Set(['where', 'mate-check']);
+const WINDOW_SOFT_CAP = 15;
 const SNAP_MS = 200;
 const FIRST_REPORT_TICKS = 5 * TICK_HZ;
 const REPORT_EVERY_TICKS = 30 * TICK_HZ;
@@ -391,8 +394,12 @@ export class LifeClient {
       onerror: null,
       send: (data) => {
         const type = typeOf(data);
-        bump(this.stats.sent, type);
         const now = this.now();
+        // A reconnect's burst (hello, 8 pings, spawn, a promote) plus the periodic reports can pass
+        // the hub's 20 messages in 10 s, as 200 clients on one machine do now and then; a page's own
+        // sends are far sparser. The periodic reports are repeated anyway, so near the cap they wait.
+        if (PERIODIC.has(type) && this.recentCount(now) >= WINDOW_SOFT_CAP) return;
+        bump(this.stats.sent, type);
         this.recent.push({ at: now, type });
         while (this.recent.length > 0 && (this.recent[0]?.at ?? now) < now - 10_000)
           this.recent.shift();
@@ -413,6 +420,13 @@ export class LifeClient {
       s.onclose?.(ev);
     };
     return s;
+  }
+
+  /** What the hub's rate window counts among the last 10 s of sends (its inputs and signals have windows of their own). */
+  private recentCount(now: number): number {
+    return this.recent.filter(
+      (m) => m.at >= now - 10_000 && m.type !== 'input' && m.type !== 'signal',
+    ).length;
   }
 
   /** The last 10 s of sends by type, for the failure line of a rate close. */
