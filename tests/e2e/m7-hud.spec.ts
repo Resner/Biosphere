@@ -55,7 +55,7 @@ const shown = (page: Page) => page.evaluate(() => window.__bs?.state().encounter
  * front (half its radius) and lets the world run on, so the player's autopilot flies as few frames
  * as can be. Returns the disc's mean luminance and the glows drawn in the frozen frame.
  */
-async function shoot(page: Page, when: 'calm' | 'windup', who: string) {
+async function shootOnce(page: Page, when: 'calm' | 'windup', who: string) {
   // A windup lasts 8 ticks and its glow shows in the last 6: a page that draws a frame in over 200 ms
   // (software GL on a runner) steps past the whole window between two frames. So the page skips its
   // draw call while it waits (the scene still updates) and draws only the frame it shoots.
@@ -139,6 +139,23 @@ async function shoot(page: Page, when: 'calm' | 'windup', who: string) {
     }
   }
   return { luminance: sum / Math.max(1, n), glows: at.glows };
+}
+
+/**
+ * `shootOnce`, until the frame it drew still holds the moment it froze on. A frozen world still takes
+ * the referee's and the hub's messages, so a windup that was running when the world froze can be
+ * settled by the two frames the shot waits for: that frame draws no glow, and is shot again.
+ */
+async function shoot(page: Page, when: 'calm' | 'windup', who: string) {
+  const tries: number[] = [];
+  for (let i = 0; i < 8; i++) {
+    const shot = await shootOnce(page, when, who);
+    if ((when === 'windup') === shot.glows > 0) return shot;
+    tries.push(shot.glows);
+  }
+  throw new Error(
+    `the ${when} shot never drew as frozen; glows drawn per try: ${tries.join(', ')}`,
+  );
 }
 
 test('the combat HUD shows only in the fight, a windup glows and ticks, and a brace blocks', async ({
