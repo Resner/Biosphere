@@ -52,8 +52,13 @@ const HUNDREDTHS = 100;
 const ORIGIN = 'http://localhost:5173';
 /** One step of the loop. */
 const LOOP_MS = 100;
-/** The most ticks one step plays to catch up with the pond clock; a bigger lag jumps. */
-const CATCH_UP_TICKS = 12;
+/**
+ * Ticks one loop (100 ms) may play: 3 are real time. A client that fell behind (200 of them share
+ * one thread) plays at most this much faster than real time, and jumps ahead past 4 times it: the
+ * hub credits the ticks of a report at most the wall time since the last one plus 2 s, so a
+ * creature that grew 4 times faster for a while read as growing too fast (M14 T14e).
+ */
+const CATCH_UP_TICKS = 5;
 /** Periodic reports a client holds back near the hub's 20 messages per 10 s (`RATE_MAX_MESSAGES`), and the count from which it does. */
 const PERIODIC: ReadonlySet<string> = new Set(['where', 'mate-check']);
 const WINDOW_SOFT_CAP = 15;
