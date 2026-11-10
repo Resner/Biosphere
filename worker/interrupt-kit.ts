@@ -150,14 +150,29 @@ export async function consistentYielding(
   slice: <T>(work: () => T) => T,
   pause: () => Promise<void>,
   every = 4,
+  sample?: { count: number; offset: number },
 ): Promise<Inconsistency[]> {
   const out = slice(() => stateProblems(hub));
-  const ids = slice(() => creaturesToVerify(hub, null));
+  const all = slice(() => creaturesToVerify(hub, null));
+  const ids = sample ? sampled(all, sample.count, sample.offset) : all;
   for (const [i, id] of ids.entries()) {
     slice(() => verifyCreature(hub, id, out));
     if ((i + 1) % every === 0) await pause();
   }
   return out;
+}
+
+/**
+ * At most about `count` of `ids`, evenly spread, a different set for each `offset`: a long run's
+ * reads verify a part of the chains each (a full read took over 300 s of the hub's time at the
+ * hour's end, M14 T14g), and the closing read all of them.
+ */
+export function sampled<T>(ids: readonly T[], count: number, offset: number): T[] {
+  if (count <= 0) return [];
+  if (ids.length <= count) return [...ids];
+  const step = Math.ceil(ids.length / count);
+  const at = ((Math.trunc(offset) % step) + step) % step;
+  return ids.filter((_, i) => i % step === at);
 }
 
 function stateProblems(hub: Hub): Inconsistency[] {

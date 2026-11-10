@@ -74,7 +74,7 @@ export interface LifeState extends Condition {
  * arrives, at its next tick, so a report it sent in that window (a round trip and a tick, seconds
  * on a loaded page) is honest. Such a claim is clamped as ever, just not flagged.
  */
-export const COST_GRACE_MS = 5_000;
+export const COST_GRACE_MS = 15_000;
 
 /**
  * The share a claim in that window may stand over its cap without a flag: the cost's 1 / 0.85

@@ -254,7 +254,8 @@ describe('a report in flight when a mating is recorded', () => {
   it('is flagged again once the page had time to pay', () => {
     const { life, before } = costed();
     const claim = { biomass: before, energy: base.energy, health: base.health };
-    const res = applyReport(life, { n: 1, ticks, ...claim }, wall + COST_GRACE_MS + 1_000);
+    // One second of play: the cap leaves no room for the body the cost took.
+    const res = applyReport(life, { n: 1, ticks: TICK_HZ, ...claim }, wall + COST_GRACE_MS + 1_000);
     expect(res.newFlags).toContain('growth-too-fast');
   });
 });
