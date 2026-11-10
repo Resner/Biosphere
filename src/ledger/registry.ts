@@ -40,9 +40,12 @@ export const REGISTRY: readonly RulesEntry[] = Object.freeze([
 
 /**
  * Each released rules version → the SHA-256 of its entry in `__golden__/frozen.json` (`entryHash`
- * in `frozen.ts`, ADR 0074): a released version's goldens never change. Empty until v1.0.0.
+ * in `frozen.ts`, ADR 0074): a released version's goldens never change. Rules 13 is v1.0.0's,
+ * pinned by the last change of M14 (T18); a later rules version adds its own pin and never edits this one.
  */
-export const RELEASED: Readonly<Record<number, string>> = Object.freeze({});
+export const RELEASED: Readonly<Record<number, string>> = Object.freeze({
+  13: '974c66d48d4d10ac08212be0ceab1c6d4511344c97e975b7d662df34cc61fed6',
+});
 
 /**
  * `live` for a version the registry holds, `retired` for one before the permanent world (rules 12

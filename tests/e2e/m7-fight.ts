@@ -106,7 +106,16 @@ export async function stage(
   await waitPlaying(b);
   const idA = (await state(a)).playerId as string;
   const idB = (await state(b)).playerId as string;
+  await squareUp(a, b, idB, hurt);
+  return { idA, idB };
+}
 
+/**
+ * Two playing creatures made ready for A's fight: equal biomass, B somewhere calm and hurt, and A
+ * waiting until it sees B unprotected. (`stage` after its hatches, and the lifecycle spec of M14,
+ * whose B is a promoted child.)
+ */
+export async function squareUp(a: Page, b: Page, idB: string, hurt = 0.3): Promise<void> {
   // Equal sizes: a hatchling's biomass follows its genome (drawn per run), and a cautious fighter
   // flees a body over `fleeSize` x its own, so a bigger opponent ends the fight as an escape at the
   // 3 s clock before the test's next step (a third fighter joining) can happen. Health is read
@@ -141,7 +150,6 @@ export async function stage(
         cause: error,
       });
     });
-  return { idA, idB };
 }
 
 /** A parks beside B until the "F" glyph marks B (B drifts, and a loaded runner draws it late). */
