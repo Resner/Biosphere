@@ -274,7 +274,7 @@ Everything in the brief, hardened.
 
 ## Brief coverage
 
-Every requirement in `docs/BRIEF.md`, mapped to the milestone that delivers it.
+Every requirement in `docs/BRIEF.md`, mapped to the milestone that delivers it. [`docs/COVERAGE.md`](COVERAGE.md) shows how each is met, with its evidence (`tools/coverage.test.ts` holds it to this table).
 
 | Brief requirement | Milestone |
 |-------------------|-----------|
@@ -294,7 +294,7 @@ Every requirement in `docs/BRIEF.md`, mapped to the milestone that delivers it.
 | **Fun** | |
 | Fast survival, risk of death, visible progress, lineage attachment | M1, M5, M7 |
 | Rare genetics and striking creatures worth discovering and showing off | M3, M5, M6, M9 |
-| Enjoyable before genetics is understood; approachable controls; readable consequences | M1, M2, M6, M7 |
+| Enjoyable before genetics is understood; approachable controls; readable consequences | M1, M2, M6, M7, M14 |
 | No NPC organisms or fake players; nonliving food, terrain, hazards and particles; solo play works; mating needs another player | M1, M2, M5 (ADR 0014) |
 | **Scaling law and area of interest** | |
 | Creatures and viewport scale up over time and generations; giants interact with large organisms | M1, M11 |
@@ -335,7 +335,7 @@ Every requirement in `docs/BRIEF.md`, mapped to the milestone that delivers it.
 | Settlement works with too few, unavailable or no witnesses; never faked | M8, M10 |
 | Uncertainty about movement and collusion stated explicitly | M9 (`docs/VERIFY.md`), ADRs 0005, 0011, 0012 |
 | **Cheating** | |
-| Supply control: survival costs, reproduction limits, tradeoffs, resistance to repeated farming; bots gain no effortless superior creatures | M1, M4, M5, M8, M10 |
+| Supply control: survival costs, reproduction limits, tradeoffs, resistance to repeated farming; bots gain no effortless superior creatures | M1, M4, M5, M8, M10, M14 |
 | **Technology** | |
 | Three.js 3D organisms and environments in a top-down 2D world; movement, lighting, materials, silhouettes | M1, M3, M6 |
 | Shared deterministic simulation, separate from rendering, versioned rules, verifiable replay | M1, M7, M9 |
@@ -345,7 +345,7 @@ Every requirement in `docs/BRIEF.md`, mapped to the milestone that delivers it.
 | Durable saves, identity recovery, peer handoff, interrupted-transaction recovery | M4, M11, M14 |
 | **Scale and delivery** | |
 | 5 to 10,000 concurrent players across local habitats with minimal infrastructure | M11–M13 |
-| Measure authority work, storage and relay traffic; expose costs and limits | M13 |
+| Measure authority work, storage and relay traffic; expose costs and limits | M13, M14 |
 | Hard spending ceiling with a capacity and admission policy | M4 (basic), M13 |
 | Prove the survival and breeding loop and morphology early with real players | M2, M3, M5 (gates) |
 | Then validate combat, lineage verification, sparse grouping and crowded scaling | M7–M12 |
@@ -358,7 +358,7 @@ Every requirement in `docs/BRIEF.md`, mapped to the milestone that delivers it.
 | **Budget** | |
 | €0 on free tiers as long as possible, never above €10; queue past capacity | M4, M13 (ADR 0008) |
 | **Privacy and identity** | |
-| Browser keypair with an exportable recovery key; no email or passwords | M2, M4 |
+| Browser keypair with an exportable recovery key; no email or passwords | M2, M4, M14 |
 | **Social** | |
 | Text chat with a profanity filter, emotes and pings | M2 |
 | **Playtesting** | |

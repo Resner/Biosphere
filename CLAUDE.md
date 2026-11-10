@@ -36,6 +36,7 @@ The npm script contract: CI, hooks and skills call these names; the tools behind
 - `docs/BRIEF.md`: the original product brief. Read the parts you need; don't rewrite it.
 - `docs/ROADMAP.md`: the ordered milestones from M0 to v1.0.0, their status and an outline of each. It decides what's next.
 - `docs/DESIGN.md`: how the game plays, with initial values. Code tables are the source of truth; update DESIGN.md when a mechanic or value changes. It describes the current game only: replace what changed rather than adding to it (no task ids, no former values, no "before M6"). History lives in specs, ADRs and git.
+- `docs/COVERAGE.md`: every requirement of the brief with its status and evidence; `tools/coverage.test.ts` holds it to the roadmap's Brief coverage table and to the repository.
 - `docs/specs/<milestone>.md`: tasks with acceptance tests and per-task notes; `(after T2)` in a title names the tasks it waits for.
 - `docs/SECURITY.md` and `docs/PRIVACY.md`: the threat model, every surface with its checks, and what is kept where; `tools/security.test.ts`, `tools/privacy.test.ts` and `worker/public.test.ts` hold them to the code.
 - `docs/OPERATIONS.md`: the owner's runbook (releases, plans, `npm run ops:watch`, incidents, secrets, the 200-player playtest); `tools/ops-doc.test.ts` holds its references to the repository.
