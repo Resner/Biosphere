@@ -65,6 +65,8 @@ const WINDOW_SOFT_CAP = 15;
 /** Frames behind the clock after which a scripted fighter skips ahead instead of sending the inputs it missed. */
 const STALE_FRAMES = 4;
 const SNAP_MS = 200;
+/** The same while nobody hunts. */
+const IDLE_SNAP_MS = 1000;
 const FIRST_REPORT_TICKS = 5 * TICK_HZ;
 const REPORT_EVERY_TICKS = 30 * TICK_HZ;
 const WAIT_MS = 60_000;
@@ -807,7 +809,11 @@ export class LifeClient {
   /** Signs the own snapshot onto the bus every 200 ms while someone could be near. */
   private sign(t: number, swim: Swimmer): void {
     if (t < this.nextSnapAt || this.peers.length === 0) return;
-    this.nextSnapAt = t + SNAP_MS;
+    // A fight's lock-in needs snapshots a few ticks old, so while anyone hunts every client signs
+    // 5 times a second. Otherwise a snapshot only shows who is ready to court: once a second. At 200
+    // clients in one process, 1,000 signatures a second kept the loops seconds late, and a page that
+    // reports 2 s late reads as growing too fast (M14 T14e).
+    this.nextSnapAt = t + (this.opts.bus.hunters(t).length > 0 ? SNAP_MS : IDLE_SNAP_MS);
     const own = this.signedNow(swim);
     if (own) this.opts.bus.post((this.identity as Identity).playerId, own.signed, own.snap, t);
   }
