@@ -11,8 +11,11 @@ type Ids = { idA: string; idB: string };
 
 /**
  * A parks beside B and presses F until a fight other than `previous` starts on A's page (parking
- * again whenever B has drifted off). Returns its id. A fight that is already over by the time the
- * page is read (B's autopilot can escape within a second) counts only with `allowOver`, for a
+ * again whenever B has drifted off). Returns its id. `mend` pages (the fighters) are healed and fed
+ * right before every press: a lock-in takes each fighter's health from its page at that moment, and
+ * a slow runner spends tens of seconds parking and pressing, during which a fighter far from the
+ * spawn bleeds (`m11-lifecycle`: both fighters locked in at 1% and 25% health, worn at once, and
+ * the kill left nobody to try again). A fight that is already over by the time the page is read (B's autopilot can escape within a second) counts only with `allowOver`, for a
  * caller that checks the fight is still running and tries again if not. `target` is B's page, shown
  * in the failure's message beside A's.
  */
@@ -22,6 +25,7 @@ export async function engage(
   previous?: string,
   allowOver = false,
   target?: Page,
+  mend: Page[] = [],
 ): Promise<string> {
   await expect(async () => {
     await parkBeside(a, ids.idB);
@@ -32,6 +36,12 @@ export async function engage(
     await a.waitForFunction((t) => (window.__bs?.state().tick ?? 0) >= t, until, {
       timeout: 15_000,
     });
+    for (const page of mend)
+      await page.evaluate(() => {
+        const debug = (window.__bs as BsHook).debug;
+        debug?.setHealth(Number.MAX_SAFE_INTEGER);
+        debug?.setEnergy(Number.MAX_SAFE_INTEGER);
+      });
     await a.keyboard.press('f');
     await a.waitForFunction(
       ([old, over]) => {
