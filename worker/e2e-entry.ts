@@ -100,7 +100,8 @@ export class Authority extends LiveAuthority {
     ring.push(`${type ?? 'other'}@${Date.now() % 100_000}`);
     if (ring.length > 60) ring.shift();
     super.webSocketMessage(ws, data);
-    if (ws.readyState > 1 && this.flagLog.length < 60) {
+    // A `leave` is a goodbye, not a close to explain (a page reloading says it).
+    if (ws.readyState > 1 && type !== 'leave' && this.flagLog.length < 60) {
       const session = sessionOf(ws);
       const who = session && 'playerId' in session ? session.playerId : '';
       this.flagLog.push(
