@@ -100,7 +100,9 @@ export class Authority extends LiveAuthority {
     ring.push(`${type ?? 'other'}@${Date.now() % 100_000}`);
     if (ring.length > 60) ring.shift();
     super.webSocketMessage(ws, data);
-    if (ws.readyState > 1 && this.flagLog.length < 60) {
+    // A `leave` is a goodbye, not a close to explain (a page reloading says it). Half the log is
+    // kept for the reports behind a flag, which one socket's repeated closes would otherwise fill.
+    if (ws.readyState > 1 && type !== 'leave' && this.flagLog.length < 30) {
       const session = sessionOf(ws);
       const who = session && 'playerId' in session ? session.playerId : '';
       this.flagLog.push(
@@ -225,7 +227,7 @@ export class Authority extends LiveAuthority {
   }
 
   /** The invariants every interrupted transaction must leave, for a scenario or a soak to read (M14 T13); empty when they hold. */
-  async consistency(): Promise<Inconsistency[]> {
+  async consistency(sample?: { count: number; offset: number }): Promise<Inconsistency[]> {
     // The check reads every creature's chain: it is the test's own look, and must not spend the plan's
     // rows-read allowance that the soak measures (and whose 90% guard closes the line). Each slice is
     // synchronous, so nothing else counts rows while it runs; between slices the object serves its
@@ -239,7 +241,7 @@ export class Authority extends LiveAuthority {
         this.rowCount.written = before.written;
       }
     };
-    return consistentYielding(this, quiet, () => new Promise((r) => setTimeout(r, 0)));
+    return consistentYielding(this, quiet, () => new Promise((r) => setTimeout(r, 0)), 4, sample);
   }
 
   /** An event's witnesses for a scenario to wait on (M10 T4); null without a witness commitment. */
@@ -250,7 +252,8 @@ export class Authority extends LiveAuthority {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const { pathname } = new URL(request.url);
+    const url = new URL(request.url);
+    const { pathname } = url;
     if (pathname === '/v1/e2e/pre-reset' && request.method === 'POST') {
       const { playerId } = (await request.json().catch(() => ({}))) as { playerId?: unknown };
       if (typeof playerId !== 'string' || !isPlayerId(playerId)) {
@@ -321,9 +324,16 @@ export default {
     }
     if (pathname === '/v1/e2e/consistency' && request.method === 'GET') {
       const stub = env.AUTHORITY.get(env.AUTHORITY.idFromName('global')) as unknown as {
-        consistency(): Promise<Inconsistency[]>;
+        consistency(sample?: { count: number; offset: number }): Promise<Inconsistency[]>;
       };
-      return Response.json(await stub.consistency());
+      // `?chains=<n>&offset=<k>`: verify about n chains (a different set for each k), not all of them.
+      const chains = Number(url.searchParams.get('chains'));
+      const offset = Number(url.searchParams.get('offset') ?? 0);
+      const sample =
+        Number.isFinite(chains) && chains > 0
+          ? { count: Math.trunc(chains), offset: Number.isFinite(offset) ? offset : 0 }
+          : undefined;
+      return Response.json(await stub.consistency(sample));
     }
     if (pathname === '/v1/e2e/rows' && request.method === 'GET') {
       const stub = env.AUTHORITY.get(env.AUTHORITY.idFromName('global')) as unknown as {

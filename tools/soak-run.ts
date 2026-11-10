@@ -55,6 +55,8 @@ const ORIGIN = 'http://localhost:5173';
 const SAMPLE = 20;
 /** How long the closing consistency read may take (it verifies every creature's chain). */
 const CONSISTENT_READ_MS = 300_000;
+/** Chains a sample's consistency read verifies (every one at the end). */
+const CONSISTENT_CHAINS = 40;
 /** The full soak's sample (M14 T14). */
 const FULL_SAMPLE = 50;
 
@@ -207,11 +209,16 @@ export async function runSoak(opts: SoakOptions): Promise<Soak> {
 
 /**
  * A read of the authority's E2E meter. A busy hour answers slowly, and one slow answer is not the
- * run's end: each read waits up to 30 s (or `timeoutMs`) and tries three times before it gives up.
+ * run's end: each read waits up to 30 s (or `timeoutMs`) and tries three times (or `attempts`) before it gives up.
  */
-async function getJson<T>(port: number, path: string, timeoutMs = 30_000): Promise<T> {
+async function getJson<T>(
+  port: number,
+  path: string,
+  timeoutMs = 30_000,
+  attempts = 3,
+): Promise<T> {
   let last: unknown;
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < attempts; attempt++) {
     try {
       const res = await fetch(`http://localhost:${port}${path}`, {
         signal: AbortSignal.timeout(timeoutMs),
@@ -433,10 +440,14 @@ async function sampleHub(
     const before = watch.now().cpuMs;
     // The meter read right after the process: the read's CPU and messages are taken at the same moments.
     const at = taken(await getJson<MetricsAnswer>(port, '/v1/e2e/metrics'));
+    // The state's invariants every time, and a part of the chains (each read a different part): all
+    // of them took over 300 s of the hub's time at minute 55, and a read that timed out was asked
+    // again. The closing read below verifies every chain.
     inconsistencies = await getJson<{ kind: string; detail?: string }[]>(
       port,
-      '/v1/e2e/consistency',
+      `/v1/e2e/consistency?chains=${CONSISTENT_CHAINS}&offset=${minute}`,
       CONSISTENT_READ_MS,
+      1,
     );
     const after = watch.now().cpuMs;
     const end = taken(await getJson<MetricsAnswer>(port, '/v1/e2e/metrics'));

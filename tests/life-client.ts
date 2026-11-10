@@ -5,9 +5,10 @@
 // waits for its births and promotes its child half the time, fights (each client signs its own
 // snapshots onto an in-process bus that stands in for the peer links), dies, restores its nearest
 // ancestor or hatches again, and drops: it closes its socket at a random moment and signs in again
-// 1 to 90 s later, resuming from what the hub names. Node only (the global `WebSocket`).
+// 1 to 90 s later, resuming from what the hub names. Node only (the `ws` package, without compression).
 
 import { createHash } from 'node:crypto';
+import WebSocket from 'ws';
 import { lockState } from '../src/game/engage';
 import { LifeFlow } from '../src/game/life';
 import { MateFlow } from '../src/game/mate';
@@ -65,6 +66,12 @@ const PERIODIC: ReadonlySet<string> = new Set(['where', 'mate-check']);
 const WINDOW_SOFT_CAP = 15;
 /** Frames behind the clock after which a scripted fighter skips ahead instead of sending the inputs it missed. */
 const STALE_FRAMES = 4;
+/**
+ * Frames a scripted fighter sends ahead of the last one it heard. A page hears every frame as it is
+ * finalized; a client whose stream of them ran far behind the clock (one run: 62 s) sent inputs
+ * for a fight the hub had settled a minute before, and was closed for them (M14 T14g).
+ */
+const HEARD_LEAD = 12;
 const SNAP_MS = 200;
 /** The same while nobody hunts. */
 const IDLE_SNAP_MS = 1000;
@@ -257,7 +264,7 @@ export class LifeClient {
   private peers: NearPeer[] = [];
   private leafValue: Extract<WorldMsg, { t: 'leaf' }>['leaf'] | null = null;
   private pending: Born | null = null;
-  private fight: { enc: string; at: number; sentTo: number } | null = null;
+  private fight: { enc: string; at: number; sentTo: number; heard: number } | null = null;
   private fightEndedAt = Number.NEGATIVE_INFINITY;
   private huntUntil = 0;
   private huntAgainAt = 0;
@@ -393,13 +400,17 @@ export class LifeClient {
     return toBase64Url(bytes);
   }
 
-  /** The socket the hub client uses: Node's `WebSocket` (or the option's), counting what crosses it. */
+  /** The socket the hub client uses: `ws`'s `WebSocket` (or the option's), counting what crosses it. */
   private socket(url: string): SocketLike {
     const raw: SocketLike =
       this.opts.createSocket?.(url) ??
       (new WebSocket(url, {
         headers: { Origin: ORIGIN },
-      } as unknown as string[]) as unknown as SocketLike);
+        // Node's own `WebSocket` offers permessage-deflate and inflates each message on the libuv
+        // thread pool, which 200 clients' signing keep busy: a client heard the hub's frames about
+        // twice a second and its fight's end 60 to 90 s late (M14 T14g).
+        perMessageDeflate: false,
+      }) as unknown as SocketLike);
     const s: SocketLike = {
       onopen: null,
       onmessage: null,
@@ -430,7 +441,11 @@ export class LifeClient {
       const type = typeOf(ev.data);
       bump(this.stats.received, type);
       if (type !== 'pong' && type !== 'near') {
-        this.heard.push(`${type}@${Math.round((this.now() - this.openedAt) / 1000)}`);
+        // The wall clock's last five digits too: the hub's trace is in them, so a late `enc-end` shows
+        // whether it was sent late (hub side) or heard late (this process).
+        this.heard.push(
+          `${type}@${Math.round((this.now() - this.openedAt) / 1000)}/${Date.now() % 100_000}`,
+        );
         if (this.heard.length > 8) this.heard.shift();
       }
       s.onmessage?.(ev);
@@ -537,9 +552,11 @@ export class LifeClient {
       );
     } else if (m.t === 'enc-start') {
       if (this.fight?.enc !== m.enc) this.stats.fights++;
-      this.fight = { enc: m.enc, at: m.at, sentTo: -1 };
+      this.fight = { enc: m.enc, at: m.at, sentTo: -1, heard: -1 };
       this.huntUntil = 0;
       this.opts.bus.hunt(this.identity.playerId, null);
+    } else if (m.t === 'enc-frame') {
+      if (this.fight?.enc === m.enc) this.fight.heard = Math.max(this.fight.heard, m.f);
     } else if (m.t === 'enc-end') {
       // The page takes its creature's state from the fight's end (`app-encounter.ts`): what the
       // fight cost or paid, and where it left it. Without it the creature goes on with the
@@ -962,7 +979,7 @@ export class LifeClient {
     // them, and a burst of them after the fight ended would pass the hub's rate window. And no
     // input names a frame past the protocol's last (`ENC_MAX_FRAME`, 100 s of fight): the hub
     // cannot parse it and counts it as an ordinary message, 10 a second until the fight ends.
-    const last = Math.min(due, ENC_MAX_FRAME);
+    const last = Math.min(due, ENC_MAX_FRAME, fight.heard + HEARD_LEAD);
     fight.sentTo = Math.max(fight.sentTo, last - STALE_FRAMES);
     for (let f = Math.max(0, fight.sentTo + 1); f <= last && f < fight.sentTo + 4; f++) {
       const i = encodeFrameInput({
