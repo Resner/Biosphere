@@ -111,7 +111,10 @@ async function told(page: Page, step: GuideStep, words: string, timeout = 60_000
  * step every 20 s of the loop's clock, and `keep` holds the creature's state; the frame that sees
  * the step drops back to normal speed, or, with `freeze`, stops the clock in that same frame: a
  * step shows 6 to 8 s of the loop's clock, and the round trips before a screenshot can outlast that
- * on a loaded runner. `shoot` restores normal speed.
+ * on a loaded runner. `shoot` restores normal speed. `fast` is the speed while waiting: `timeScale`
+ * adds the real time since the last frame at the old speed to the clock, so after a slow frame at 8
+ * the step is already past its 8 s when the freeze lands. A step that shows at once (`swim`, an
+ * urgent `hazard`) waits at 1.
  */
 async function until(
   page: Page,
@@ -119,20 +122,21 @@ async function until(
   keep: Keep = {},
   timeout = 30_000,
   freeze = false,
+  fast = 8,
 ): Promise<void> {
   await page
     .waitForFunction(
-      ([step, keep, freeze]) => {
+      ([step, keep, freeze, fast]) => {
         const bs = window.__bs as BsHook;
         (window as Kept).__guideKeep?.(keep);
         if (bs.state().guide.current === step) {
           bs.debug?.timeScale(freeze ? 0 : 1);
           return true;
         }
-        bs.debug?.timeScale(8);
+        bs.debug?.timeScale(fast);
         return false;
       },
-      [step, keep, freeze] as const,
+      [step, keep, freeze, fast] as const,
       { timeout, polling: 100 },
     )
     .catch(async (error) => {
@@ -235,7 +239,7 @@ test('a newcomer is told to swim, eat, dash, keep clear and eat when hungry, onc
     await hatch(page);
 
     // Swim, in the life's first second; gone once it has swum 3 body lengths.
-    await until(page, 'swim', FULL, 30_000, true);
+    await until(page, 'swim', FULL, 30_000, true, 1);
     await expect(page.getByTestId('hint')).toHaveText(GUIDE_WORDS.swim);
     expect((await state(page)).hud.hints).toBe(GUIDE_WORDS.swim);
     await shoot(page, 'swim');
@@ -272,7 +276,7 @@ test('a newcomer is told to swim, eat, dash, keep clear and eat when hungry, onc
       const p = bs.state().player;
       if (p) bs.debug?.spawnPlume(p.x + p.radius * 4, p.y, p.radius * 2);
     });
-    await until(page, 'hazard', FULL, 10_000, true);
+    await until(page, 'hazard', FULL, 10_000, true, 1);
     await expect(page.getByTestId('hint')).toHaveText(GUIDE_WORDS.hazard[0]);
     await shoot(page, 'hazard');
     await page.evaluate(() => {

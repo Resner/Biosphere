@@ -86,14 +86,21 @@ test('the game plays in this engine: hatch, feed, dash, link, menus and a verifi
     const charge = await chargeAndCrack(a);
     expect(charge, 'the pokes charged the egg').toBeGreaterThan(0);
     await waitPlaying(a, { paced: true });
-    await a.waitForFunction(() => window.__bs?.state().egg.card.shown, undefined, {
-      timeout: 15_000,
-    });
+    // The card stays up for 3 s: take its tier in the frame that shows it, not from a later read.
+    const shownCard = await a.waitForFunction(
+      () => {
+        const card = window.__bs?.state().egg.card;
+        return card?.shown ? { tier: card.tier } : false;
+      },
+      undefined,
+      { timeout: 15_000 },
+    );
+    const { tier: cardTier } = (await shownCard.jsonValue()) as { tier: string | null };
     let s = await state(a);
     expect(s.life).toMatchObject({ status: 'playing', practice: false });
     expect(s.egg.phases).toEqual(expect.arrayContaining(['waiting', 'stirring']));
     expect(s.egg.crackedBy).toBe('player');
-    expect(s.egg.card.tier).toBe(s.player?.rarity);
+    expect(cardTier).toBe(s.player?.rarity);
     const recorded = await a.evaluate(() => (window.__bs as BsHook).life.recompute());
     expect(recorded?.genomeHash, 'the DNA this engine recomputes').toBe(s.player?.genomeHash);
     await drawnShot(a, info, 'm14-smoke-hatched', browserName);

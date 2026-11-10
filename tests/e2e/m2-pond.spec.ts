@@ -186,14 +186,16 @@ test('three players see each other move smoothly, share food and chat @slow', as
     await Promise.all(
       [a, b].map((p) =>
         // Not onto the item: a mouth sits ahead of the centre by an amount that depends on the DNA,
-        // so a cell dropped on the item may not reach it. Both swim in from the same side instead.
+        // so a cell dropped on the item may not reach it. Both swim in from the same side instead,
+        // and follow the item by id: a steer to its point ends within a body's width of it, and a
+        // cell that coasts past with its mouth beside the item leaves it uneaten.
         p.evaluate(
-          ({ x, y }) => {
+          ({ id, x, y }) => {
             const debug = (window.__bs as BsHook).debug;
             debug?.teleport(x - 50, y);
-            void debug?.steerTo({ x, y });
+            void debug?.steerTo({ id, x, y });
           },
-          { x, y },
+          { id, x, y },
         ),
       ),
     );
