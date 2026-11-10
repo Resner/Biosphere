@@ -549,7 +549,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
     - `docs/SECURITY.md` names a test or a document for every surface, and `docs/PRIVACY.md` matches what the code stores (a reviewer's table of each `localStorage` and IndexedDB key and each SQLite table, checked by a test against the source's keys and `worker/schema.ts`'s tables).
   - Notes: the policy is `tools/csp.mjs` (`.mjs`: the Vite config imports it), written into each page's `__BS_CSP__` meta at build; fixed mates' names kept for good, unbounded paths (414) and the missing fuzz tests. Gotcha: `resner.github.io` is one origin for every Pages site of the account (a residual risk in SECURITY.md, the owner's call).
 
-- [ ] T17 The brief, line by line, with evidence (after T11, T14g, T16)
+- [ ] T17 The brief, line by line, with evidence (after T11, T14g, T16) (in progress)
   - Steps:
     1. **`docs/COVERAGE.md`**: one row per requirement of `docs/BRIEF.md` (the rows of the roadmap's Brief coverage table, split where a row holds more than one checkable claim), each with:
        - its status: met, met but an owner check remains, or after 1.0 (only what the brief itself puts there: mobile);
