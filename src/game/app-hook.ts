@@ -213,6 +213,9 @@ function debugHelpers(app: App): BsDebug {
     dutyFrameMs(ms) {
       app.duty.frameMs = ms;
     },
+    oneWayMs(ms) {
+      app.duty.oneWayPin = ms;
+    },
     timeScale(next) {
       app.clock();
       app.scale = next;

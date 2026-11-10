@@ -575,6 +575,13 @@ export interface BsDebug {
    * slower than a witness may, and a scenario about audits needs its witnesses to stay available.
    */
   dutyFrameMs(ms: number | null): void;
+  /**
+   * A test aid: the one-way latency a fight's input lead uses, to the authority and to a witness
+   * alike, is `ms` (null: the measured one again). Measured round trips swing with a runner's load,
+   * and a handover between two such estimates shifts the lead by whatever they differ by; a
+   * scenario that counts the rollbacks around a handover pins it.
+   */
+  oneWayMs(ms: number | null): void;
   /** Runs the sim this many times faster than real time; 0 also holds the shaders' animation clock. */
   timeScale(scale: number): void;
   /**
