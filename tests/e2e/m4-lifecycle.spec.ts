@@ -19,8 +19,9 @@ async function starve(page: Page): Promise<void> {
     timeout: 20_000,
   });
   await page.evaluate(() => (window.__bs as BsHook).debug?.timeScale(1));
-  // A drifting plume can get to a starving cell first; this test is about the loop, not the cause.
-  expect(['starved', 'toxin']).toContain((await state(page)).death?.cause);
+  // Any hazard of the water can get to a starving cell first (a plume, UV, pressure); this test is about the loop,
+  // not which one. Fights and old age cannot happen here.
+  expect(['starved', 'toxin', 'uv', 'pressure']).toContain((await state(page)).death?.cause);
 }
 
 /** The recovery code, read on a page that stays offline so it does not take the session over. */
