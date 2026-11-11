@@ -105,7 +105,11 @@ async function shootOnce(page: Page, when: 'calm' | 'windup', who: string) {
     await new Promise((r) => requestAnimationFrame(() => r(0)));
     await new Promise((r) => requestAnimationFrame(() => r(0)));
     const bs = window.__bs as BsHook;
-    const f = bs.state().encounter?.fighters.find((x) => x.player === who);
+    const enc = bs.state().encounter;
+    const f = enc?.fighters.find((x) => x.player === who);
+    // A frozen world still takes the referee's messages: the fight can end between the freeze and
+    // these frames, and the picture then holds no fight (and no combat HUD) to judge.
+    const fighting = !!enc && !enc.over && document.body.hasAttribute('data-fighting');
     const fx = bs.render.fx();
     const px = bs.render.info().pxPerWu;
     if (!f) throw new Error('no fighter');
@@ -117,6 +121,7 @@ async function shootOnce(page: Page, when: 'calm' | 'windup', who: string) {
       y: innerHeight / 2 - (wy - fx.camY) * px,
       r: f.radius * px,
       glows: bs.render.info().telegraphs.glows,
+      fighting,
     };
   }, who);
   const r = Math.max(4, Math.round(at.r * 0.45));
@@ -138,7 +143,7 @@ async function shootOnce(page: Page, when: 'calm' | 'windup', who: string) {
       n++;
     }
   }
-  return { luminance: sum / Math.max(1, n), glows: at.glows };
+  return { luminance: sum / Math.max(1, n), glows: at.glows, fighting: at.fighting };
 }
 
 /**
@@ -150,8 +155,8 @@ async function shoot(page: Page, when: 'calm' | 'windup', who: string) {
   const tries: number[] = [];
   for (let i = 0; i < 8; i++) {
     const shot = await shootOnce(page, when, who);
-    if ((when === 'windup') === shot.glows > 0) return shot;
-    tries.push(shot.glows);
+    if (shot.fighting && (when === 'windup') === shot.glows > 0) return shot;
+    tries.push(shot.fighting ? shot.glows : -1);
   }
   throw new Error(
     `the ${when} shot never drew as frozen; glows drawn per try: ${tries.join(', ')}`,
