@@ -20,7 +20,7 @@ The ordered milestones from M0 to v1.0.0 ("finished"). `/scaffold` wrote them, a
 | M11 | Area of interest and size tiers | one continuous world; quadtree directory plus tiers decide connections; the cap holds, including boundary neighbours, witnesses and handoffs; no hidden threats (property test); seamless handoffs | — | done | [M11](specs/M11-area-of-interest-and-size-tiers.md) | v0.12.0 (its release run failed on two flaky scenarios, so it ships with v0.13.0) |
 | M12 | Habitats, regrouping and spawning | sparse consolidation; spawn ring outside attack range with anti-camping; crowded instances; transitions keep one state and can't escape combat | — | done | [M12](specs/M12-habitats-regrouping-and-spawning.md) | v0.13.0 |
 | M13 | Scale proof and admission | load simulation to 10k concurrent players; measured authority, storage and relay costs; `docs/CAPACITY.md`; admission queue within the free tier or the €10 ceiling | — | done | [M13](specs/M13-scale-proof-and-admission.md) | v0.14.0 |
-| M14 | v1.0 release | about 200 concurrent real players; interrupted-transaction recovery; Chrome, Edge, Firefox and Safari; balance; onboarding; brief coverage complete | gate | specced | [M14](specs/M14-v1-release.md) | v1.0.0 |
+| M14 | v1.0 release | about 200 concurrent real players; interrupted-transaction recovery; Chrome, Edge, Firefox and Safari; balance; onboarding; brief coverage complete | gate | done | [M14](specs/M14-v1-release.md) | v1.0.0 |
 
 Status: `planned` → `specced` → `done`. Gate: `gate` means the factory waits for the owner's reply on the release's `Playtest:` issue before it starts the next milestone.
 
