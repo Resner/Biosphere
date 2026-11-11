@@ -122,12 +122,20 @@ export async function squareUp(a: Page, b: Page, idB: string, hurt = 0.3): Promi
   // after the resize has reached the state, since the maximum health follows the biomass.
   await Promise.all(
     [a, b].map(async (page) => {
-      await page.evaluate((m) => (window.__bs as BsHook).debug?.setBiomass(m), EQUAL_BIOMASS);
+      // The world stands still while the size is set and read: a creature with its energy topped up
+      // (the lifecycle spec's) grows with every tick it plays, and a loaded runner plays many before
+      // the read, which read as a size that never settled.
+      await page.evaluate((m) => {
+        const debug = (window.__bs as BsHook).debug;
+        debug?.timeScale(0);
+        debug?.setBiomass(m);
+      }, EQUAL_BIOMASS);
       await page.waitForFunction(
         (m) => Math.abs((window.__bs?.state().player?.biomass ?? 0) - m) < 1,
         EQUAL_BIOMASS,
         { timeout: 10_000 },
       );
+      await page.evaluate(() => (window.__bs as BsHook).debug?.timeScale(1));
     }),
   );
 
