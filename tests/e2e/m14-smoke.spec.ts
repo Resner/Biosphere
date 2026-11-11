@@ -156,8 +156,13 @@ test('the game plays in this engine: hatch, feed, dash, link, menus and a verifi
     await expect(a.getByTestId('menu')).toBeVisible();
     await a.getByTestId('menu-settings').click();
     await a.getByTestId('quality-medium').check();
+    // Two software-GL pages keep the main thread busy: a read can queue behind a slow frame for
+    // longer than the default 5 s, so the wait is bounded by the test's ceiling, not by a pace.
     await expect
-      .poll(() => a.evaluate(() => (window.__bs as BsHook).render.info().preset))
+      .poll(() => a.evaluate(() => (window.__bs as BsHook).render.info().preset), {
+        message: 'the medium preset took hold',
+        timeout: 60_000,
+      })
       .toBe('medium');
     const kept = await a.evaluate(() => JSON.parse(localStorage.getItem('bs.settings') ?? '{}'));
     expect(kept.quality, 'the choice is stored').toBe('medium');
