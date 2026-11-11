@@ -189,6 +189,9 @@ test('the v1.0 story: help, a crashed hatch, the guide, a crashed mating, a prom
     await a.waitForFunction(() => window.__bs?.state().mate.state === 'awaiting', undefined, {
       timeout: 20_000,
     });
+    // B waits through A's crashes and the beacon, minutes of play: in the shallows the sun would
+    // burn it to the death screen before its fight, so it waits somewhere calm.
+    await b.evaluate(() => (window.__bs as BsHook).debug?.setZone('twilight'));
     // A's renderer crashes on `mating`.
     await crash(a);
     a = await reopen(ctxA, HUB);
