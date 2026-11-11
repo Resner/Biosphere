@@ -320,7 +320,8 @@ test('a newcomer is told to swim, eat, dash, keep clear and eat when hungry, onc
     await page.getByTestId('settings-close').click();
     await expect(page.getByTestId('title-help')).toBeVisible();
     await hatch(page);
-    await until(page, 'swim', FULL);
+    // `swim` shows at once, so wait at 1: at 8 a poll can land after the creature swam it away.
+    await until(page, 'swim', FULL, 30_000, false, 1);
 
     // "Show hints" off: the line goes at once.
     await page.keyboard.press('Escape');
