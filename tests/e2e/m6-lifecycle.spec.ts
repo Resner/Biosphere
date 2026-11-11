@@ -55,7 +55,8 @@ async function hatched(context: BrowserContext): Promise<Page> {
 test('hatch, grow, zones, find, wheel, mate, promote and a death in the abyss @slow', async ({
   browser,
 }) => {
-  test.setTimeout(420_000);
+  // A slow runner plays the zone waits and the courtship at a few ticks a second: the ceiling is wide.
+  test.setTimeout(900_000);
   const a = await hatched(await browser.newContext());
 
   // 1. The egg reveal plays, and the body is a genesis form.
@@ -141,21 +142,31 @@ test('hatch, grow, zones, find, wheel, mate, promote and a death in the abyss @s
         });
       });
     // The shake takes the kind of the hit that lands: a starving belly's hits would hide the zone's.
-    await a.waitForFunction(
-      ([kind, inZone]) => {
-        const bs = window.__bs as BsHook;
-        bs.debug?.setEnergy(Number.MAX_SAFE_INTEGER);
-        // Full health as well: a slow runner plays this wait for minutes and the zone's own hits
-        // would kill the body (a dead A shows the death screen, whose shake is never the zone's).
-        bs.debug?.setHealth(Number.MAX_SAFE_INTEGER);
-        // The cursor and the currents carry the body about while the world runs: out of the zone
-        // its hazard stops, and no further hit would come.
-        if (bs.state().zone !== inZone) bs.debug?.setZone(inZone);
-        const { shake, vignette } = bs.render.fx();
-        return shake.kind === kind && shake.body > 0 && shake.camera > 0 && vignette === 0;
-      },
-      [cue, zone] as const,
-    );
+    await a
+      .waitForFunction(
+        ([kind, inZone]) => {
+          const bs = window.__bs as BsHook;
+          bs.debug?.setEnergy(Number.MAX_SAFE_INTEGER);
+          // Full health as well: a slow runner plays this wait for minutes and the zone's own hits
+          // would kill the body (a dead A shows the death screen, whose shake is never the zone's).
+          bs.debug?.setHealth(Number.MAX_SAFE_INTEGER);
+          // The cursor and the currents carry the body about while the world runs: out of the zone
+          // its hazard stops, and no further hit would come.
+          if (bs.state().zone !== inZone) bs.debug?.setZone(inZone);
+          const { shake, vignette } = bs.render.fx();
+          return shake.kind === kind && shake.body > 0 && shake.camera > 0 && vignette === 0;
+        },
+        [cue, zone] as const,
+        { timeout: 150_000 },
+      )
+      .catch(async (error) => {
+        const s = await state(a);
+        const fx = await a.evaluate(() => (window.__bs as BsHook).render.fx().shake);
+        throw new Error(
+          `no ${cue} shake in the ${zone}: ${JSON.stringify({ zone: s.zone, tick: s.tick, screen: s.screen, health: s.player?.health, fx })}`,
+          { cause: error },
+        );
+      });
     await timeScale(a, 0);
     expect(
       (await a.evaluate(() => (window.__bs as BsHook).events())).damage ?? 0,
