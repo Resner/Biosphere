@@ -50,7 +50,19 @@ test('closing the tab and coming back resumes the same creature @slow', async ({
   const second = await context.newPage();
   await openRecorded(second);
   await clickHatch(second);
-  await waitPlaying(second);
+  // The resumed creature grows with every tick it plays, and a loaded runner plays many before a
+  // read, so its world stands still in the frame that first plays (not a pace in wall time).
+  await second.waitForFunction(
+    () => {
+      const bs = window.__bs as BsHook;
+      const s = bs.state();
+      if (s.screen !== 'playing' || !s.player) return false;
+      bs.debug?.timeScale(0);
+      return true;
+    },
+    undefined,
+    { timeout: 20_000 },
+  );
   const after = await state(second);
   expect(after.life.status).toBe('playing');
   expect(after.life.creature).toBe(before.life.creature);
@@ -58,7 +70,8 @@ test('closing the tab and coming back resumes the same creature @slow', async ({
   expect(after.life.activeMs).toBe(before.life.activeMs);
   // The hub held the condition it clamped from the last report: never more than was reported. The
   // creature keeps burning biomass after the report, so what we read here can sit a little below it
-  // (more so on a loaded runner, where the sim runs on at 30x until the ack is seen).
+  // (more so on a loaded runner, where the sim runs on at 30x until the ack is seen). Its growth
+  // since the resume is a tick or two: the world stood still from the first playing frame.
   expect(after.player?.biomass).toBeGreaterThan(0);
   expect(after.player?.biomass).toBeLessThanOrEqual(ackedBiomass + 2);
   await context.close();
