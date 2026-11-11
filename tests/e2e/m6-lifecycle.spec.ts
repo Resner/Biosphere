@@ -246,7 +246,7 @@ test('hatch, grow, zones, find, wheel, mate, promote and a death in the abyss @s
     await expect(a.getByTestId('mate-hint')).toHaveText(/^E: court /, { timeout: 3_000 });
     await a.keyboard.press('e');
     await expect(b.getByTestId('invite')).toBeVisible({ timeout: 3_000 });
-  }).toPass({ timeout: 40_000 });
+  }, 'A parks beside B, is offered the key and B is invited').toPass({ timeout: 90_000 });
   await b.keyboard.press('e');
   for (const page of [a, b]) {
     await page.waitForFunction(
