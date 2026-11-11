@@ -92,7 +92,9 @@ test('a wrong code is refused and the creature stays', async ({ browser }) => {
   await page.getByTestId('recovery-open').click();
   // Plain words, and the whole panel fits the smallest supported window.
   const panel = page.getByTestId('recovery');
-  expect(await panel.innerText()).not.toMatch(/seed|key|hash|identity|ed25519|crypto|base32/i);
+  // The code itself is random base32 and can spell a word, so the words are judged without it.
+  const words = (await panel.innerText()).replace(/\b[0-9A-Z]{5}(?:-[0-9A-Z]{5})+\b/g, '');
+  expect(words).not.toMatch(/seed|key|hash|identity|ed25519|crypto|base32/i);
   const box = await panel.boundingBox();
   const { width, height } = page.viewportSize() ?? { width: 960, height: 540 };
   expect(box && box.x >= 0 && box.y >= 0 && box.x + box.width <= width).toBe(true);
