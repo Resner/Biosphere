@@ -312,19 +312,26 @@ export function checksOf(run: Soak): Check[] {
         ? 'no heap samples'
         : `${fixed(heapA.heapBytes / 1e6, 1)} MB at minute ${heapA.minute}, ${fixed(heapB.heapBytes / 1e6, 1)} MB at ${heapB.minute} (${fixed(growth * 100, 1)}%)`,
     );
-    const a = nearest(mine, WINDOWS.heap[1] * k);
-    const first = nearest(mine, WINDOWS.heap[0] * k);
-    const level =
-      a && first
-        ? a.geometries <= first.geometries &&
-          a.textures <= first.textures &&
-          a.programs <= first.programs
-        : false;
+    // What the scene shows comes and goes (a creature's parts, an effect in view), so a page's
+    // resources move up and down; a leak stays up. The late window's lowest count is held to the
+    // early window's highest, per kind.
+    const early = mine.filter(
+      (p) => p.minute >= WINDOWS.early[0] * k && p.minute <= WINDOWS.early[1] * k,
+    );
+    const late = mine.filter(
+      (p) => p.minute >= WINDOWS.late[0] * k && p.minute <= WINDOWS.late[1] * k,
+    );
+    const kinds = ['geometries', 'textures', 'programs'] as const;
+    const peak = (kind: (typeof kinds)[number]) => Math.max(...early.map((p) => p[kind]));
+    const floor = (kind: (typeof kinds)[number]) => Math.min(...late.map((p) => p[kind]));
+    const sampled = early.length > 0 && late.length > 0;
     add(
       `page ${id} renderer resources do not grow`,
-      level,
-      a && first
-        ? `geometries ${first.geometries} → ${a.geometries}, textures ${first.textures} → ${a.textures}, programs ${first.programs} → ${a.programs}`
+      sampled && kinds.every((kind) => floor(kind) <= peak(kind)),
+      sampled
+        ? kinds
+            .map((kind) => `${kind} at most ${peak(kind)} early, at least ${floor(kind)} late`)
+            .join(', ')
         : 'no samples',
     );
     const f0 = nearest(

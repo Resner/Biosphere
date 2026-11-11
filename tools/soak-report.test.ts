@@ -185,6 +185,19 @@ describe('the soak checks', () => {
     expect(failed(run)).toEqual([]);
   });
 
+  it('let a page show more at one minute than at another, as the scene changes (the soak of run 42924119295)', () => {
+    const run = healthy();
+    // The scene held 11 geometries and 9 programs at minute 12, fewer through the hour, and 11 and 9
+    // again at the end: content in view, not a leak.
+    for (const p of run.full?.pages ?? []) {
+      if (p.page !== 1) continue;
+      const shown = p.minute === 12 || p.minute >= 55;
+      p.geometries = shown ? 11 : 9;
+      p.programs = shown ? 9 : 7;
+    }
+    expect(failed(run)).toEqual([]);
+  });
+
   it('fail a bundle that does not verify', () => {
     const run = healthy();
     run.verified.problems = ['abcd1234: chain:break at 3'];

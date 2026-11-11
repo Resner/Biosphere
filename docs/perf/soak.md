@@ -21,10 +21,10 @@ Reproduce with `npm run soak -- --full` (about 70 minutes; `.github/workflows/so
 | rows written per player-hour | pass | 147.62 (model 199.58, limit 299.37; the mix played: 2.92 sessions, 4.76 fights, 5.70 matings and 1.30 hatches a player-hour) |
 | pages sampled | pass | 2 pages |
 | page 1 heap level | pass | 10.7 MB at minute 10, 11.9 MB at 55 (11.1%) |
-| page 1 renderer resources do not grow | pass | geometries 11 → 11, textures 1 → 1, programs 9 → 9 |
+| page 1 renderer resources do not grow | pass | geometries at most 11 early, at least 11 late, textures at most 1 early, at least 1 late, programs at most 9 early, at least 9 late |
 | page 1 frame time level | pass | p95 116.7 ms at minute 5, 83.4 ms at 55 |
 | page 2 heap level | pass | 10.5 MB at minute 10, 9.9 MB at 55 (-5.2%) |
-| page 2 renderer resources do not grow | pass | geometries 10 → 9, textures 1 → 1, programs 8 → 7 |
+| page 2 renderer resources do not grow | pass | geometries at most 10 early, at least 9 late, textures at most 1 early, at least 1 late, programs at most 8 early, at least 7 late |
 | page 2 frame time level | pass | p95 116.6 ms at minute 5, 83.4 ms at 55 |
 | page 1 played and reloaded | pass | 5 hatches, reloads at 30 |
 | page 2 played and reloaded | pass | 3 hatches, reloads at 30 |
