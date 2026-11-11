@@ -17,7 +17,7 @@ import { chase, engage, flee, waitOver, watched, watchFrom } from './m8-fight';
 // fight ends whatever the outcome, and A's hash equals `enc-end`'s with the settlement verified; B
 // then opens again and reads the report that matches A's `enc-end`. The medium budgets hold at each
 // step. A fight can end before a step runs (B's autopilot flees, or A loses it): the attempt is
-// dropped and A engages again, at most 3 times. Each path alone is `m8-resume`, `m8-restart`,
+// dropped and A engages again, at most 4 times (a lost fight stages a fresh pair). Each path alone is `m8-resume`, `m8-restart`,
 // `m8-proxy` and `m8-away`.
 
 test.describe.configure({ mode: 'serial' });
@@ -108,19 +108,21 @@ test('one fight through a reload, an authority restart and a closed tab, then th
   request,
 }) => {
   test.setTimeout(480_000);
-  const [ctxA, ctxB, ctxC] = await Promise.all([
-    browser.newContext(),
-    browser.newContext(),
-    browser.newContext(),
-  ]);
-  const [a, b, c] = await Promise.all([openPage(ctxA), openPage(ctxB), openPage(ctxC)]);
-  let pageB = b;
+  let [ctxA, ctxB] = await Promise.all([browser.newContext(), browser.newContext()]);
+  const ctxC = await browser.newContext();
+  let [a, pageB] = await Promise.all([openPage(ctxA), openPage(ctxB)]);
+  const c = await openPage(ctxC);
+  // A and B hatched and squared up. B stays whole: a healthy starter neither flees nor dies soon on
+  // its autopilot, so a fight between equals can be lost by A: the pair is staged again below.
+  const stagePair = async (): Promise<Ids> => {
+    const staged = await stage(a, pageB, undefined, 1);
+    await pageB.evaluate(() => (window.__bs as BsHook).debug?.skipDraw(true));
+    return staged;
+  };
   try {
     await clickHatch(c);
     await waitPlaying(c);
-    // B stays whole: a healthy starter neither flees nor dies soon on its autopilot.
-    const ids: Ids = await stage(a, b, undefined, 1);
-    await b.evaluate(() => (window.__bs as BsHook).debug?.skipDraw(true));
+    let ids: Ids = await stagePair();
     for (const [page, step] of [
       [a, 'A hatched'],
       [c, 'C hatched'],
@@ -129,9 +131,18 @@ test('one fight through a reload, an authority restart and a closed tab, then th
 
     let id: string | null = null;
     let previous: string | undefined;
-    for (let attempt = 0; attempt < 3 && id === null; attempt++) {
+    for (let attempt = 0; attempt < 4 && id === null; attempt++) {
       if (previous) {
         await waitOver(a, previous, 'A');
+        // A lost the last fight: it can't engage again, so a fresh pair is staged on new pages
+        // (new identities), as `killB` does for a lost fight.
+        if ((await state(a)).screen === 'dead') {
+          await Promise.all([ctxA.close(), ctxB.close()]);
+          [ctxA, ctxB] = await Promise.all([browser.newContext(), browser.newContext()]);
+          [a, pageB] = await Promise.all([openPage(ctxA), openPage(ctxB)]);
+          ids = await stagePair();
+          previous = undefined;
+        }
         // B may have closed in the last attempt: back on the title and playing.
         if (pageB.isClosed()) {
           pageB = await openPage(ctxB);
