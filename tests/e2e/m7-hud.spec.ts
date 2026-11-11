@@ -199,6 +199,10 @@ test('the combat HUD shows only in the fight, a windup glows and ticks, and a br
       debug?.setZone('twilight');
       debug?.autoBrace(true);
     });
+    // A braces too: both fighters block most of the strikes they see coming, so the fight lasts far
+    // longer than the wall time the two shots take (a duel in which only B braces is over in about
+    // 5 s, before a slow runner has drawn the second shot).
+    await a.evaluate(() => (window.__bs as BsHook).debug?.autoBrace(true));
     await a
       .waitForFunction(
         (who) =>
