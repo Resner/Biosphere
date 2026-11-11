@@ -109,8 +109,28 @@ test('another player shows at its bearing, and a ping for its lifetime', async (
       .toBeLessThan(2);
     await pingLook(b);
     const pinged = async () => (await state(a)).minimap.pings.some((p) => p.id === idB);
-    await expect.poll(pinged, { timeout: 5_000, intervals: [50] }).toBe(true);
-    const shownAt = Date.now();
+    // The lifetime is read in A's own page, frame by frame, so a runner that is slow to answer the
+    // test's polls cannot stretch it: from the first frame that shows the ping to the first that
+    // doesn't.
+    await a.evaluate((id) => {
+      const hook = window.__bs as BsHook;
+      const seen = { shownAt: -1, goneAt: -1 };
+      (window as unknown as { __pingSpan: typeof seen }).__pingSpan = seen;
+      const frame = () => {
+        const on = hook.state().minimap.pings.some((p) => p.id === id);
+        const t = performance.now();
+        if (on && seen.shownAt < 0) seen.shownAt = t;
+        if (!on && seen.shownAt >= 0) {
+          seen.goneAt = t;
+          return;
+        }
+        requestAnimationFrame(frame);
+      };
+      frame();
+    }, idB);
+    await expect
+      .poll(pinged, { timeout: 5_000, intervals: [50], message: 'the ping shows on the minimap' })
+      .toBe(true);
     // The ping's bearing from where A is now, read in the same frame as the drawn dot: A drifts on
     // the currents while B pings, so the bearing it was placed at is no longer exact.
     const now = await state(a);
@@ -123,7 +143,11 @@ test('another player shows at its bearing, and a ping for its lifetime', async (
     await a.getByTestId('minimap').screenshot({ path: 'test-results/m6b-minimap-ping.png' });
     // It stays for the ping's 4 s, then goes.
     await expect.poll(pinged, { timeout: 8_000, intervals: [100] }).toBe(false);
-    const lasted = Date.now() - shownAt;
+    const lasted = await a.evaluate(() => {
+      const span = (window as unknown as { __pingSpan: { shownAt: number; goneAt: number } })
+        .__pingSpan;
+      return span.goneAt - span.shownAt;
+    });
     expect(lasted, `shown ${lasted} ms`).toBeGreaterThanOrEqual(3_000);
     expect(lasted, `shown ${lasted} ms`).toBeLessThanOrEqual(5_500);
   } finally {
