@@ -199,6 +199,10 @@ test('the combat HUD shows only in the fight, a windup glows and ticks, and a br
       debug?.setZone('twilight');
       debug?.autoBrace(true);
     });
+    // A braces too: both fighters block most of the strikes they see coming, so the fight lasts far
+    // longer than the wall time the two shots take (a duel in which only B braces is over in about
+    // 5 s, before a slow runner has drawn the second shot).
+    await a.evaluate(() => (window.__bs as BsHook).debug?.autoBrace(true));
     await a
       .waitForFunction(
         (who) =>
@@ -244,6 +248,9 @@ test('the combat HUD shows only in the fight, a windup glows and ticks, and a br
     expect(hud?.stance).toBe('balanced');
     expect(hud?.opponents.map((o) => o.player)).toEqual([idA]);
     await expect(b.getByTestId('stance-balanced')).toHaveAttribute('aria-pressed', 'true');
+    // B then turns evasive (it deals 70%), the second way the fight is kept alive for the shots.
+    await b.getByTestId('stance-evasive').click();
+    await expect(b.getByTestId('stance-evasive')).toHaveAttribute('aria-pressed', 'true');
     // Within the HUD budget at 960 × 540, the combat buttons included: the size and life bars step
     // aside for them while the fight lasts.
     const cover = await hudCover(b, COMBAT_HUD);
