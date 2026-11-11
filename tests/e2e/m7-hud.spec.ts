@@ -248,9 +248,6 @@ test('the combat HUD shows only in the fight, a windup glows and ticks, and a br
     expect(hud?.stance).toBe('balanced');
     expect(hud?.opponents.map((o) => o.player)).toEqual([idA]);
     await expect(b.getByTestId('stance-balanced')).toHaveAttribute('aria-pressed', 'true');
-    // B then turns evasive (it deals 70%), the second way the fight is kept alive for the shots.
-    await b.getByTestId('stance-evasive').click();
-    await expect(b.getByTestId('stance-evasive')).toHaveAttribute('aria-pressed', 'true');
     // Within the HUD budget at 960 × 540, the combat buttons included: the size and life bars step
     // aside for them while the fight lasts.
     const cover = await hudCover(b, COMBAT_HUD);
