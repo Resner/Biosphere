@@ -137,14 +137,19 @@ test('a crashed tab resumes its genesis, its mating, its promotion, its death an
     expect((await bs(a)).mate.state).toBe('awaiting');
     await clickHatch(a);
     await waitPlaying(a);
+    // The hub charged the biomass A's last report held, which is `before`. The resumed creature
+    // grows with every tick it plays (a runner plays as many as its load allows), so its world
+    // stands still from here: the read is the paid biomass plus a tick or two of growth.
+    await a.evaluate(() => (window.__bs as BsHook).debug?.timeScale(0));
     await a.waitForFunction(() => window.__bs?.state().egg.shown === true);
     const paid = await bs(a);
     expect(paid.life.creature).toBe(a0);
-    // Paid once: 85% of before. The hub charges its own biomass, which grew a little since the last
-    // report, so allow 3% (a second payment would leave 72%).
-    expect(Math.abs((paid.player?.biomass ?? 0) - 0.85 * before)).toBeLessThanOrEqual(
-      0.03 * before,
-    );
+    // Paid once: 85% of before, then the growth of the ticks the page played on the way to its
+    // egg (a second payment would leave 72%, growth included). It never reads below what was paid.
+    const left = paid.player?.biomass ?? 0;
+    expect(left).toBeGreaterThanOrEqual(0.85 * before - 0.5);
+    expect(left).toBeLessThanOrEqual(0.92 * before);
+    await a.evaluate(() => (window.__bs as BsHook).debug?.timeScale(1));
     await expect(a.getByTestId('mate-hint')).toHaveText('Awaiting beacon');
     await attach(a, 'mating');
     // The round comes: `born` reveals the child to both, and B never saw anything wrong.
