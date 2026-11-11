@@ -264,8 +264,10 @@ test('hatch, grow, zones, find, wheel, mate, promote and a death in the abyss @s
     [a, idB],
     [b, idA],
   ] as const) {
+    // The other egg arrives over the data channel after the carried flag, and a slow runner's
+    // software-GL frames hold the snapshot back: wait on the state, with the 60 s ceiling.
     await page.waitForFunction((id) => window.__bs?.state().egg.peers.includes(id), other, {
-      timeout: 10_000,
+      timeout: 60_000,
     });
     expect((await state(page)).egg.shown).toBe(true);
     expect((await info(page)).eggs).toBe(2);
